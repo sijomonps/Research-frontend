@@ -86,6 +86,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUser(resolvedUser);
           syncUserToLocalStorage(resolvedUser);
 
+          // Restore cookies/localStorage bidirectionally if one is missing
+          if (typeof window !== "undefined") {
+            const cookieToken = Cookies.get("token");
+            const localToken = localStorage.getItem("token");
+            if (cookieToken && !localToken) {
+              localStorage.setItem("token", cookieToken);
+            } else if (localToken && !cookieToken) {
+              Cookies.set("token", localToken, { expires: 1, secure: true, sameSite: "lax" });
+            }
+          }
+
           // Force redirect if password change is required
           if (resolvedUser.requirePasswordChange) {
             const role = resolvedUser.role || resolvedUser.roles?.[0];
@@ -116,6 +127,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
           setUser(null);
           Cookies.remove("token");
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("token");
+          }
           const isProtected = ["/admin", "/coordinator", "/faculty", "/research-guide", "/scholar", "/library"].some(
             (prefix) => pathname.startsWith(prefix)
           );
@@ -124,11 +138,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
         }
       } catch (error: any) {
-        if (error && error.message !== "Authentication required") {
-          console.error("Auto-auth resolution failed:", error);
+        // Distinguish between authentic authentication failures (401 status) and other errors (network timeouts, 502, 503)
+        const isAuthError = 
+          error?.message === "Authentication required" || 
+          error?.message === "Invalid or expired token" ||
+          error?.message?.includes("status: 401") ||
+          error?.message?.includes("401");
+
+        if (!isAuthError) {
+          console.error("Auto-auth resolution failed due to network/server timeout:", error);
+          // Keep user session intact; don't clear token or redirect to login.
+          if (isMounted) setLoading(false);
+          return;
         }
+
+        console.error("Auto-auth resolution failed (auth error):", error);
         if (isMounted) setUser(null);
         Cookies.remove("token");
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("token");
+        }
         
         const isProtected = ["/admin", "/coordinator", "/faculty", "/research-guide", "/scholar", "/library"].some(
           (prefix) => pathname.startsWith(prefix)
@@ -149,6 +178,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = (token: string, userData: User) => {
     Cookies.set("token", token, { expires: 1, secure: true, sameSite: "lax" });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("token", token);
+    }
     setUser(userData);
     syncUserToLocalStorage(userData);
 
@@ -182,6 +214,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error("Failed to clear server session:", e);
     }
     Cookies.remove("token");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("token");
+    }
     setUser(null);
     router.push("/");
   };

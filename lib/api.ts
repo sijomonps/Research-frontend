@@ -13,7 +13,10 @@ export type ApiMessageResponse = {
 };
 
 const getAuthHeaders = (): Record<string, string> => {
-  const token = typeof window !== "undefined" ? Cookies.get("token") : undefined;
+  let token = typeof window !== "undefined" ? Cookies.get("token") : undefined;
+  if (!token && typeof window !== "undefined") {
+    token = localStorage.getItem("token") || undefined;
+  }
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
