@@ -21,6 +21,7 @@ export interface User {
   avatar?: string;
   academicYear?: string;
   preferences?: any;
+  permissions?: string[];
 }
 
 interface AuthContextType {
@@ -152,9 +153,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const role = resolvedUser.role || resolvedUser.roles?.[0];
             let changePasswordPath = "/";
             if (role === "admin") changePasswordPath = "/admin/settings";
-            else if (role === "coordinator") changePasswordPath = "/coordinator/profile/change-password";
-            else if (role === "faculty") changePasswordPath = "/faculty/profile/change-password";
-            else if (role === "research_guide") changePasswordPath = "/research-guide/profile/change-password";
+            else if (role === "coordinator" || role === "faculty" || role === "research_guide") changePasswordPath = "/faculty/profile/change-password";
             else if (role === "scholar") changePasswordPath = "/scholar/profile/change-password";
             else if (role === "library") changePasswordPath = "/library/profile/change-password";
 
@@ -168,9 +167,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (pathname === "/") {
             const role = resolvedUser.role || resolvedUser.roles?.[0];
             if (role === "admin") router.push("/admin");
-            else if (role === "coordinator") router.push("/coordinator");
-            else if (role === "faculty") router.push("/faculty");
-            else if (role === "research_guide") router.push("/research-guide");
+            else if (role === "coordinator" || role === "faculty" || role === "research_guide") router.push("/faculty");
             else if (role === "scholar") router.push("/scholar");
             else if (role === "library") router.push("/library");
           }
@@ -242,9 +239,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const role = userData.role || userData.roles?.[0];
       let changePasswordPath = "/";
       if (role === "admin") changePasswordPath = "/admin/settings";
-      else if (role === "coordinator") changePasswordPath = "/coordinator/profile/change-password";
-      else if (role === "faculty") changePasswordPath = "/faculty/profile/change-password";
-      else if (role === "research_guide") changePasswordPath = "/research-guide/profile/change-password";
+      else if (role === "coordinator" || role === "faculty" || role === "research_guide") changePasswordPath = "/faculty/profile/change-password";
       else if (role === "scholar") changePasswordPath = "/scholar/profile/change-password";
       else if (role === "library") changePasswordPath = "/library/profile/change-password";
 
@@ -254,9 +249,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const role = userData.role || userData.roles?.[0];
     if (role === "admin") router.push("/admin");
-    else if (role === "coordinator") router.push("/coordinator");
-    else if (role === "faculty") router.push("/faculty");
-    else if (role === "research_guide") router.push("/research-guide");
+    else if (role === "coordinator" || role === "faculty" || role === "research_guide") router.push("/faculty");
     else if (role === "scholar") router.push("/scholar");
     else if (role === "library") router.push("/library");
   };

@@ -39,7 +39,7 @@ export default function Home() {
   
   // Modal mode: "login" or "register"
   const [modalMode, setModalMode] = useState<"login" | "register">("login");
-  const [availableDepartments, setAvailableDepartments] = useState<{ _id: string; name: string }[]>([]);
+  const [availableDepartments, setAvailableDepartments] = useState<{ _id: string; name: string; department?: string }[]>([]);
 
   // Registration form states
   const [regName, setRegName] = useState("");
@@ -75,10 +75,11 @@ export default function Home() {
         setLoading(true);
         const [res, deptRes] = await Promise.all([
           apiGet<ApiListResponse<User>>("/users"),
-          apiGet<ApiListResponse<{ _id: string; name: string }>>("/departments")
+          apiGet<ApiListResponse<{ _id: string; name: string; department?: string; status?: string }>>("/research-centers")
         ]);
         setUsers(res.items || []);
-        setAvailableDepartments(deptRes.items || []);
+        const activeCenters = (deptRes.items || []).filter(c => c.status === "Active" || !c.status);
+        setAvailableDepartments(activeCenters);
       } catch (err) {
         console.error("Failed to fetch user directory or departments:", err);
       } finally {
@@ -144,6 +145,12 @@ export default function Home() {
         if (selectedGuide) {
           researchCenterId = selectedGuide.researchCenter?._id || selectedGuide.researchCenter;
           department = selectedGuide.department;
+        }
+      } else {
+        const selectedCenter = availableDepartments.find(c => c.name === regDept);
+        if (selectedCenter) {
+          researchCenterId = selectedCenter._id;
+          department = selectedCenter.department;
         }
       }
 
@@ -421,8 +428,6 @@ export default function Home() {
                       <option value="admin">Administrator</option>
                       <option value="scholar">Scholar</option>
                       <option value="faculty">Faculty Member</option>
-                      <option value="research_guide">Research Guide</option>
-                      <option value="coordinator">Research Center Coordinator</option>
                       <option value="library">Librarian</option>
                     </select>
                   </div>
@@ -505,8 +510,6 @@ export default function Home() {
                       <option value="" disabled>-- Select role --</option>
                       <option value="scholar">Scholar</option>
                       <option value="faculty">Faculty Member</option>
-                      <option value="research_guide">Research Guide</option>
-                      <option value="coordinator">Research Center Coordinator</option>
                     </select>
                   </div>
                 </div>
@@ -524,7 +527,7 @@ export default function Home() {
                       >
                         <option value="" disabled>-- Select guide --</option>
                         {users
-                          .filter((u) => u.role === "research_guide" || u.roles?.includes("research_guide"))
+                          .filter((u) => u.role === "research_guide" || u.roles?.includes("research_guide") || u.permissions?.includes("research_guide"))
                           .map((guide) => (
                             <option key={guide._id} value={guide._id}>
                               {guide.name} ({guide.department || "No Department"})

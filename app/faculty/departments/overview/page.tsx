@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
-import { coordinatorNav } from "@/data/roleNav";
+import { facultyNav } from "@/data/roleNav";
 import { useAuth } from "@/components/AuthProvider";
 
 export default function CoordinatorOverviewPage() {
@@ -11,14 +11,14 @@ export default function CoordinatorOverviewPage() {
   return (
     <PageLayout
       title="MCA Research Center Overview"
-      userName={user?.name || "Coordinator"}
-      roleLabel="Coordinator"
-      navItems={coordinatorNav}
+      userName={user?.name || "Faculty"}
+      roleLabel="Faculty Member"
+      navItems={facultyNav}
       activeItem="Research Centers"
     >
       <section className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-[0_14px_28px_rgba(91,11,22,0.08)]">
         <Link
-          href="/coordinator/departments"
+          href="/faculty/departments"
           className="inline-flex items-center gap-2 text-xs font-semibold text-[color:var(--maroon-700)]"
         >
           <ArrowLeft className="h-4 w-4" />

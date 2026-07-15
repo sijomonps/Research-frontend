@@ -7,7 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
 import { StatusBadge } from "@/components/StatusBadge";
 import { adminNav } from "@/data/roleNav";
-import { apiGet, apiPatchJson, type ApiItemResponse } from "@/lib/api";
+import { apiGet, apiPatchJson, type ApiItemResponse, type ApiListResponse } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 
 type User = {
@@ -19,7 +19,7 @@ type User = {
   department?: string;
   status?: string;
   phone?: string;
-  researchCenter?: { name?: string; code?: string } | null;
+  researchCenter?: { _id?: string; name?: string; code?: string } | string | null;
   guide?: { name?: string; email?: string } | null;
 };
 
@@ -64,12 +64,27 @@ function AdminUserDetailsContent() {
     };
   }, [userId]);
 
+  const [researchCenters, setResearchCenters] = useState<any[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiGet<ApiListResponse<any>>("/research-centers")
+      .then((res) => {
+        if (isMounted) setResearchCenters(res.items || []);
+      })
+      .catch(console.error);
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "",
     email: "",
     department: "",
+    researchCenterId: "",
     phone: "",
     status: "Active",
     password: "",
@@ -81,6 +96,7 @@ function AdminUserDetailsContent() {
         name: user.name || "",
         email: user.email || "",
         department: user.department || "",
+        researchCenterId: (user.researchCenter && typeof user.researchCenter === "object" ? (user.researchCenter as any)._id : user.researchCenter) || "",
         phone: user.phone || "",
         status: user.status || "Active",
         password: "",
@@ -95,10 +111,22 @@ function AdminUserDetailsContent() {
       const payload: any = {
         name: editForm.name,
         email: editForm.email,
-        department: editForm.department,
         phone: editForm.phone,
         status: editForm.status,
       };
+
+      if (user?.role === "faculty") {
+        payload.researchCenterId = editForm.researchCenterId || null;
+        const matched = researchCenters.find((c) => c._id === editForm.researchCenterId);
+        if (matched) {
+          payload.department = matched.department || matched.name;
+        } else {
+          payload.department = "";
+        }
+      } else {
+        payload.department = editForm.department;
+      }
+
       if (editForm.password) {
         payload.password = editForm.password;
       }
@@ -149,10 +177,32 @@ function AdminUserDetailsContent() {
                     <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Email</label>
                     <input className="mt-1 w-full rounded-xl border border-[color:var(--border)] px-3 py-2" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
                   </div>
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Department</label>
-                    <input className="mt-1 w-full rounded-xl border border-[color:var(--border)] px-3 py-2" value={editForm.department} onChange={(e) => setEditForm({ ...editForm, department: e.target.value })} />
-                  </div>
+                  {user.role === "faculty" ? (
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Research Center</label>
+                      <select
+                        className="mt-1 w-full rounded-xl border border-[color:var(--border)] px-3 py-2 bg-white"
+                        value={editForm.researchCenterId}
+                        onChange={(e) => setEditForm({ ...editForm, researchCenterId: e.target.value })}
+                      >
+                        <option value="">Select Research Center</option>
+                        {researchCenters.map((c) => (
+                          <option key={c._id} value={c._id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Department/Department Name</label>
+                      <input
+                        className="mt-1 w-full rounded-xl border border-[color:var(--border)] px-3 py-2"
+                        value={editForm.department}
+                        onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Phone</label>
                     <input className="mt-1 w-full rounded-xl border border-[color:var(--border)] px-3 py-2" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
@@ -205,7 +255,7 @@ function AdminUserDetailsContent() {
                     </p>
                     <p>
                       <span className="font-semibold">Research Center:</span>{" "}
-                      {user.researchCenter?.name ?? "N/A"}
+                      {(user.researchCenter && typeof user.researchCenter === "object" ? user.researchCenter.name : user.researchCenter) || "N/A"}
                     </p>
                     <p>
                       <span className="font-semibold">Guide:</span> {user.guide?.name ?? "N/A"}

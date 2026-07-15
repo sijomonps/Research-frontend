@@ -2,113 +2,123 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, X, Power } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
 import { DataTable } from "@/components/Table";
-import { StatusBadge } from "@/components/StatusBadge";
 import { adminNav } from "@/data/roleNav";
-import { apiGet, apiPostJson, apiDelete, type ApiListResponse } from "@/lib/api";
+import { apiDelete, apiGet, apiPostJson, apiPatchJson, type ApiListResponse } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 
 type ResearchCenter = {
   _id: string;
   name: string;
   code: string;
-  status?: string;
-  coordinator?: { name?: string; email?: string } | null;
-  department?: { name?: string } | null;
+  department: string;
+  description?: string;
+  officeLocation?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  status: string;
+  coordinator?: { _id?: string; name?: string; email?: string } | null;
 };
 
-type Department = {
+type User = {
+  _id: string;
+  name: string;
+  email: string;
+  role?: string;
+  roles?: string[];
+  permissions?: string[];
+  department?: string;
+  researchCenter?: { _id: string; name: string } | string | null;
+};
+
+type DepartmentOption = {
   _id: string;
   name: string;
 };
-
-type Coordinator = {
-  _id: string;
-  name: string;
-};
-
-const columns = [
-  { key: "name", label: "Research Center" },
-  { key: "code", label: "Code" },
-  { key: "coordinator", label: "Coordinator" },
-  { key: "status", label: "Status" },
-  { key: "action", label: "Action", align: "right" as const },
-];
 
 const inputClass =
-  "mt-2 w-full rounded-xl border border-[color:var(--border)] bg-white px-3 py-2 text-xs text-slate-700 shadow-sm";
+  "mt-2 w-full rounded-xl border border-[color:var(--border)] bg-white px-3 py-2 text-xs text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#9B0302]/20 focus:border-[#9B0302] transition-all";
 
 export default function AdminResearchCentersPage() {
   const { user } = useAuth();
   const [centers, setCenters] = useState<ResearchCenter[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [coordinators, setCoordinators] = useState<Coordinator[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [editingCenter, setEditingCenter] = useState<ResearchCenter | null>(null);
+  
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+
   const [formState, setFormState] = useState({
     name: "",
     code: "",
-    departmentId: "",
+    department: "",
+    description: "",
+    officeLocation: "",
+    contactEmail: "",
+    contactPhone: "",
     coordinatorId: "",
     status: "Active",
   });
 
-  const loadCenters = useCallback(async () => {
+  const [editFormState, setEditFormState] = useState({
+    name: "",
+    code: "",
+    department: "",
+    description: "",
+    officeLocation: "",
+    contactEmail: "",
+    contactPhone: "",
+    coordinatorId: "",
+    status: "Active",
+  });
+
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiGet<ApiListResponse<ResearchCenter>>(
-        "/research-centers"
-      );
-      setCenters(response.items);
+      const [centersRes, usersRes, deptsRes] = await Promise.all([
+        apiGet<ApiListResponse<ResearchCenter>>("/research-centers"),
+        apiGet<ApiListResponse<User>>("/users"),
+        apiGet<ApiListResponse<DepartmentOption>>("/departments"),
+      ]);
+
+      setCenters(centersRes.items);
+      setAllUsers(usersRes.items);
+      setDepartments(deptsRes.items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
+    loadData();
+  }, [loadData]);
 
-    const load = async () => {
-      try {
-        const [centersRes, departmentsRes, coordinatorsRes] =
-          await Promise.all([
-            apiGet<ApiListResponse<ResearchCenter>>("/research-centers"),
-            apiGet<ApiListResponse<Department>>("/departments"),
-            apiGet<ApiListResponse<Coordinator>>("/users?role=coordinator"),
-          ]);
-        if (!isMounted) return;
-        setCenters(centersRes.items);
-        setDepartments(departmentsRes.items);
-        setCoordinators(coordinatorsRes.items);
-      } catch (err) {
-        if (!isMounted) return;
-        const message =
-          err instanceof Error ? err.message : "Failed to load research centers";
-        setError(message);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
+  const coordinators = useMemo(() => {
+    return allUsers.filter((u) =>
+      u.role === "faculty" ||
+      u.role === "coordinator" ||
+      u.roles?.includes("faculty") ||
+      u.roles?.includes("coordinator") ||
+      u.permissions?.includes("coordinator")
+    );
+  }, [allUsers]);
 
-    load();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const handleFormChange = (
-    field: keyof typeof formState,
-    value: string
-  ) => {
+  const handleFormChange = (field: keyof typeof formState, value: string) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleEditFormChange = (field: keyof typeof editFormState, value: string) => {
+    setEditFormState((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleCreate = async () => {
@@ -117,48 +127,175 @@ export default function AdminResearchCentersPage() {
       setSaveError(null);
       setSaveSuccess(null);
 
-      if (!formState.name.trim() || !formState.code.trim()) {
-        setSaveError("Name and code are required.");
+      if (!formState.name.trim() || !formState.code.trim() || !formState.department) {
+        setSaveError("Name, Code and Department are required.");
         setSaving(false);
         return;
       }
 
-      const payload = {
+      await apiPostJson("/research-centers", {
         name: formState.name.trim(),
-        code: formState.code.trim(),
-        departmentId: departments[0]?._id || "default-dept-id",
+        code: formState.code.trim().toUpperCase(),
+        department: formState.department,
+        description: formState.description.trim() || undefined,
+        officeLocation: formState.officeLocation.trim() || undefined,
+        contactEmail: formState.contactEmail.trim() || undefined,
+        contactPhone: formState.contactPhone.trim() || undefined,
         coordinatorId: formState.coordinatorId || undefined,
-        status: formState.status || undefined,
-      };
+        status: formState.status,
+      });
 
-      await apiPostJson("/research-centers", payload);
-      setSaveSuccess("Research center created successfully.");
+      setSaveSuccess("Research Center created successfully.");
       setFormState({
         name: "",
         code: "",
-        departmentId: "",
+        department: "",
+        description: "",
+        officeLocation: "",
+        contactEmail: "",
+        contactPhone: "",
         coordinatorId: "",
         status: "Active",
       });
-      await loadCenters();
+      setShowForm(false);
+      await loadData();
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to create research center";
-      setSaveError(message);
+      setSaveError(err instanceof Error ? err.message : "Failed to create research center");
     } finally {
       setSaving(false);
     }
   };
 
-  const rows = useMemo(
-    () =>
-      centers.map((center) => ({
+  const startEdit = (center: ResearchCenter) => {
+    setEditingCenter(center);
+    setEditFormState({
+      name: center.name,
+      code: center.code,
+      department: center.department,
+      description: center.description || "",
+      officeLocation: center.officeLocation || "",
+      contactEmail: center.contactEmail || "",
+      contactPhone: center.contactPhone || "",
+      coordinatorId: center.coordinator?._id || "",
+      status: center.status || "Active",
+    });
+    setSaveError(null);
+    setSaveSuccess(null);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingCenter) return;
+    try {
+      setSaving(true);
+      setSaveError(null);
+      setSaveSuccess(null);
+
+      if (!editFormState.name.trim() || !editFormState.code.trim() || !editFormState.department) {
+        setSaveError("Name, Code and Department are required.");
+        setSaving(false);
+        return;
+      }
+
+      await apiPatchJson(`/research-centers/${editingCenter._id}`, {
+        name: editFormState.name.trim(),
+        code: editFormState.code.trim().toUpperCase(),
+        department: editFormState.department,
+        description: editFormState.description.trim() || undefined,
+        officeLocation: editFormState.officeLocation.trim() || undefined,
+        contactEmail: editFormState.contactEmail.trim() || undefined,
+        contactPhone: editFormState.contactPhone.trim() || undefined,
+        coordinatorId: editFormState.coordinatorId || undefined,
+        status: editFormState.status,
+      });
+
+      setSaveSuccess("Research Center updated successfully.");
+      setEditingCenter(null);
+      await loadData();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to update research center");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleStatus = async (center: ResearchCenter) => {
+    try {
+      const nextStatus = center.status === "Active" ? "Inactive" : "Active";
+      await apiPatchJson(`/research-centers/${center._id}/status`, { status: nextStatus });
+      await loadData();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to toggle status");
+    }
+  };
+
+  const handleDelete = async (center: ResearchCenter, facultyCount: number, scholarCount: number) => {
+    if (facultyCount > 0 || scholarCount > 0) {
+      alert("Cannot delete research center while faculty or scholars are assigned to it.");
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to delete research center "${center.name}"?`)) {
+      return;
+    }
+    try {
+      setLoading(true);
+      await apiDelete(`/research-centers/${center._id}`);
+      await loadData();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const columns = [
+    { key: "name", label: "Centre Name" },
+    { key: "department", label: "Department" },
+    { key: "facultyCount", label: "Faculty Count" },
+    { key: "guideCount", label: "Guide Count" },
+    { key: "scholarCount", label: "Scholar Count" },
+    { key: "status", label: "Status" },
+    { key: "action", label: "Actions", align: "right" as const },
+  ];
+
+  const rows = useMemo(() => {
+    return centers.map((center) => {
+      const centerFaculty = allUsers.filter(
+        (u) => {
+          const rc = u.researchCenter;
+          const userCenterId = (rc && typeof rc === "object") ? rc._id : rc;
+          return userCenterId === center._id && u.role === "faculty";
+        }
+      );
+      const centerGuides = allUsers.filter(
+        (u) => {
+          const rc = u.researchCenter;
+          const userCenterId = (rc && typeof rc === "object") ? rc._id : rc;
+          return userCenterId === center._id &&
+            (u.role === "research_guide" || u.roles?.includes("research_guide") || u.permissions?.includes("research_guide"));
+        }
+      );
+      const centerScholars = allUsers.filter(
+        (u) => {
+          const rc = u.researchCenter;
+          const userCenterId = (rc && typeof rc === "object") ? rc._id : rc;
+          return userCenterId === center._id && u.role === "scholar";
+        }
+      );
+
+      return {
         id: center._id,
         name: center.name,
-        code: center.code,
-        department: center.department?.name ?? "Unassigned",
-        coordinator: center.coordinator?.name ?? "Unassigned",
-        status: <StatusBadge status={center.status ?? "Active"} />,
+        department: center.department,
+        facultyCount: centerFaculty.length,
+        guideCount: centerGuides.length,
+        scholarCount: centerScholars.length,
+        status: (
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+            center.status === "Active" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"
+          }`}>
+            {center.status}
+          </span>
+        ),
         action: (
           <div className="flex justify-end gap-2">
             <Link
@@ -168,25 +305,35 @@ export default function AdminResearchCentersPage() {
               Manage
             </Link>
             <button
-              onClick={async () => {
-                if (window.confirm(`Delete research center "${center.name}"?`)) {
-                  try {
-                    await apiDelete(`/research-centers/${center._id}`);
-                    setCenters(centers.filter((c) => c._id !== center._id));
-                  } catch (err) {
-                    alert(err instanceof Error ? err.message : "Failed to delete research center");
-                  }
-                }
-              }}
-              className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 transition-colors"
+              onClick={() => toggleStatus(center)}
+              className={`rounded-full border p-1.5 text-xs font-semibold transition-colors ${
+                center.status === "Active"
+                  ? "border-amber-200 text-amber-600 hover:bg-amber-50"
+                  : "border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+              }`}
+              title={center.status === "Active" ? "Deactivate" : "Activate"}
             >
-              Delete
+              <Power className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => startEdit(center)}
+              className="rounded-full border border-slate-200 p-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+              title="Edit"
+            >
+              <Edit2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => handleDelete(center, centerFaculty.length, centerScholars.length)}
+              className="rounded-full border border-red-200 p-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
+              title="Delete"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
         ),
-      })),
-    [centers]
-  );
+      };
+    });
+  }, [centers, allUsers]);
 
   return (
     <PageLayout
@@ -203,123 +350,394 @@ export default function AdminResearchCentersPage() {
               Research Centers
             </h2>
             <p className="text-sm text-slate-500">
-              Create and manage research center assignments and oversight.
+              Create, edit, activate/deactivate, and oversee institution-wide research units.
             </p>
           </div>
           <button
             type="button"
-            onClick={() => setShowForm((prev) => !prev)}
-            className="inline-flex items-center gap-2 rounded-full bg-[color:var(--maroon-800)] px-4 py-2 text-xs font-semibold text-white shadow-sm"
+            onClick={() => {
+              setShowForm(true);
+              setFormState({
+                name: "",
+                code: "",
+                department: "",
+                description: "",
+                officeLocation: "",
+                contactEmail: "",
+                contactPhone: "",
+                coordinatorId: "",
+                status: "Active",
+              });
+              setEditingCenter(null);
+            }}
+            className="inline-flex items-center gap-2 rounded-full bg-[color:var(--maroon-800)] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[color:var(--maroon-950)] transition-colors"
           >
             <Plus className="h-4 w-4" />
-            {showForm ? "Close" : "Add Research Center"}
+            Add Research Center
           </button>
         </div>
-        {showForm ? (
-          <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--muted)] p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Create research center
-            </p>
-            <div className="mt-3 grid gap-4 lg:grid-cols-2">
-              <div>
-                <label
-                  className="text-xs font-semibold uppercase tracking-wide text-slate-500"
-                  htmlFor="center-name"
+
+        {/* Create Modal / Form Overlay */}
+        {showForm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-scale-up max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 className="font-display text-base font-bold text-[color:var(--maroon-900)]">
+                  Add Research Center
+                </h3>
+                <button
+                  onClick={() => setShowForm(false)}
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all"
                 >
-                  Name
-                </label>
-                <input
-                  id="center-name"
-                  className={inputClass}
-                  value={formState.name}
-                  onChange={(event) => handleFormChange("name", event.target.value)}
-                  placeholder="Research center name"
-                />
-              </div>
-              <div>
-                <label
-                  className="text-xs font-semibold uppercase tracking-wide text-slate-500"
-                  htmlFor="center-code"
-                >
-                  Code
-                </label>
-                <input
-                  id="center-code"
-                  className={inputClass}
-                  value={formState.code}
-                  onChange={(event) => handleFormChange("code", event.target.value)}
-                  placeholder="Center code"
-                />
+                  <X className="h-5 w-5" />
+                </button>
               </div>
 
-              <div>
-                <label
-                  className="text-xs font-semibold uppercase tracking-wide text-slate-500"
-                  htmlFor="center-coordinator"
-                >
-                  Coordinator
-                </label>
-                <select
-                  id="center-coordinator"
-                  className={inputClass}
-                  value={formState.coordinatorId}
-                  onChange={(event) =>
-                    handleFormChange("coordinatorId", event.target.value)
-                  }
-                >
-                  <option value="">Unassigned</option>
-                  {coordinators.map((coordinator) => (
-                    <option key={coordinator._id} value={coordinator._id}>
-                      {coordinator.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="mt-4 space-y-4">
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-name">
+                    Research Center Name
+                  </label>
+                  <input
+                    id="create-name"
+                    className={inputClass}
+                    value={formState.name}
+                    onChange={(e) => handleFormChange("name", e.target.value)}
+                    placeholder="e.g. MCA Research Center"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-code">
+                      Center Code
+                    </label>
+                    <input
+                      id="create-code"
+                      className={inputClass}
+                      value={formState.code}
+                      onChange={(e) => handleFormChange("code", e.target.value)}
+                      placeholder="e.g. MCA"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-dept">
+                      Department
+                    </label>
+                    <select
+                      id="create-dept"
+                      className={inputClass}
+                      value={formState.department}
+                      onChange={(e) => handleFormChange("department", e.target.value)}
+                    >
+                      <option value="">Select Department</option>
+                      {departments.map((d) => (
+                        <option key={d._id} value={d.name}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-description">
+                    Description
+                  </label>
+                  <textarea
+                    id="create-description"
+                    className={`${inputClass} h-20 resize-none`}
+                    value={formState.description}
+                    onChange={(e) => handleFormChange("description", e.target.value)}
+                    placeholder="Center purpose, focus area, etc."
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-office">
+                    Office Location
+                  </label>
+                  <input
+                    id="create-office"
+                    className={inputClass}
+                    value={formState.officeLocation}
+                    onChange={(e) => handleFormChange("officeLocation", e.target.value)}
+                    placeholder="e.g. Room 403, Block B"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-email">
+                      Contact Email
+                    </label>
+                    <input
+                      id="create-email"
+                      type="email"
+                      className={inputClass}
+                      value={formState.contactEmail}
+                      onChange={(e) => handleFormChange("contactEmail", e.target.value)}
+                      placeholder="e.g. mca@univ.edu"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-phone">
+                      Contact Phone
+                    </label>
+                    <input
+                      id="create-phone"
+                      className={inputClass}
+                      value={formState.contactPhone}
+                      onChange={(e) => handleFormChange("contactPhone", e.target.value)}
+                      placeholder="e.g. +91 9988776655"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-coordinator">
+                      Coordinator
+                    </label>
+                    <select
+                      id="create-coordinator"
+                      className={inputClass}
+                      value={formState.coordinatorId}
+                      onChange={(e) => handleFormChange("coordinatorId", e.target.value)}
+                    >
+                      <option value="">Unassigned</option>
+                      {coordinators.map((c) => (
+                        <option key={c._id} value={c._id}>
+                          {c.name} ({c.email})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-status">
+                      Status
+                    </label>
+                    <select
+                      id="create-status"
+                      className={inputClass}
+                      value={formState.status}
+                      onChange={(e) => handleFormChange("status", e.target.value)}
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label
-                  className="text-xs font-semibold uppercase tracking-wide text-slate-500"
-                  htmlFor="center-status"
+
+              <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
                 >
-                  Status
-                </label>
-                <select
-                  id="center-status"
-                  className={inputClass}
-                  value={formState.status}
-                  onChange={(event) => handleFormChange("status", event.target.value)}
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={saving}
+                  className="rounded-full bg-[color:var(--maroon-800)] px-4 py-2 text-xs font-semibold text-white shadow-sm disabled:opacity-60 hover:bg-[color:var(--maroon-950)] transition-colors"
                 >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
+                  {saving ? "Creating..." : "Create Research Center"}
+                </button>
               </div>
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={handleCreate}
-                disabled={saving}
-                className="rounded-full bg-[color:var(--maroon-800)] px-4 py-2 text-xs font-semibold text-white shadow-sm disabled:opacity-60"
-              >
-                {saving ? "Saving..." : "Create research center"}
-              </button>
-              {saveError ? (
-                <span className="text-xs text-red-600">{saveError}</span>
-              ) : null}
-              {saveSuccess ? (
-                <span className="text-xs text-emerald-600">{saveSuccess}</span>
-              ) : null}
+              {saveError && <p className="mt-2 text-xs text-red-600 text-right">{saveError}</p>}
+              {saveSuccess && <p className="mt-2 text-xs text-emerald-600 text-right">{saveSuccess}</p>}
             </div>
           </div>
-        ) : null}
+        )}
+
+        {/* Edit Modal / Form Overlay */}
+        {editingCenter && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-scale-up max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 className="font-display text-base font-bold text-[color:var(--maroon-900)]">
+                  Edit Research Center
+                </h3>
+                <button
+                  onClick={() => setEditingCenter(null)}
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-4">
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-name">
+                    Research Center Name
+                  </label>
+                  <input
+                    id="edit-name"
+                    className={inputClass}
+                    value={editFormState.name}
+                    onChange={(e) => handleEditFormChange("name", e.target.value)}
+                    placeholder="Research Center Name"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-code">
+                      Center Code
+                    </label>
+                    <input
+                      id="edit-code"
+                      className={inputClass}
+                      value={editFormState.code}
+                      onChange={(e) => handleEditFormChange("code", e.target.value)}
+                      placeholder="Center Code"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-dept">
+                      Department
+                    </label>
+                    <select
+                      id="edit-dept"
+                      className={inputClass}
+                      value={editFormState.department}
+                      onChange={(e) => handleEditFormChange("department", e.target.value)}
+                    >
+                      <option value="">Select Department</option>
+                      {departments.map((d) => (
+                        <option key={d._id} value={d.name}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-description">
+                    Description
+                  </label>
+                  <textarea
+                    id="edit-description"
+                    className={`${inputClass} h-20 resize-none`}
+                    value={editFormState.description}
+                    onChange={(e) => handleEditFormChange("description", e.target.value)}
+                    placeholder="Center description"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-office">
+                    Office Location
+                  </label>
+                  <input
+                    id="edit-office"
+                    className={inputClass}
+                    value={editFormState.officeLocation}
+                    onChange={(e) => handleEditFormChange("officeLocation", e.target.value)}
+                    placeholder="Office Location"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-email">
+                      Contact Email
+                    </label>
+                    <input
+                      id="edit-email"
+                      type="email"
+                      className={inputClass}
+                      value={editFormState.contactEmail}
+                      onChange={(e) => handleEditFormChange("contactEmail", e.target.value)}
+                      placeholder="Contact Email"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-phone">
+                      Contact Phone
+                    </label>
+                    <input
+                      id="edit-phone"
+                      className={inputClass}
+                      value={editFormState.contactPhone}
+                      onChange={(e) => handleEditFormChange("contactPhone", e.target.value)}
+                      placeholder="Contact Phone"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-coordinator">
+                      Coordinator
+                    </label>
+                    <select
+                      id="edit-coordinator"
+                      className={inputClass}
+                      value={editFormState.coordinatorId}
+                      onChange={(e) => handleEditFormChange("coordinatorId", e.target.value)}
+                    >
+                      <option value="">Unassigned</option>
+                      {coordinators.map((c) => (
+                        <option key={c._id} value={c._id}>
+                          {c.name} ({c.email})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-status">
+                      Status
+                    </label>
+                    <select
+                      id="edit-status"
+                      className={inputClass}
+                      value={editFormState.status}
+                      onChange={(e) => handleEditFormChange("status", e.target.value)}
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setEditingCenter(null)}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUpdate}
+                  disabled={saving}
+                  className="rounded-full bg-[color:var(--maroon-800)] px-4 py-2 text-xs font-semibold text-white shadow-sm disabled:opacity-60 hover:bg-[color:var(--maroon-950)] transition-colors"
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+              {saveError && <p className="mt-2 text-xs text-red-600 text-right">{saveError}</p>}
+            </div>
+          </div>
+        )}
+
         <div className="mt-4 flex flex-wrap gap-3">
           <div className="flex flex-1 items-center gap-2 rounded-full border border-[color:var(--border)] bg-white px-4 py-2 text-xs text-slate-500">
             <Search className="h-4 w-4" />
             <span>Search research centers...</span>
           </div>
         </div>
+
         <div className="mt-4">
           {loading ? (
-            <p className="text-sm text-slate-500">Loading research centers...</p>
+            <p className="text-sm text-slate-500 animate-pulse">Loading research centers...</p>
           ) : error ? (
             <p className="text-sm text-red-600">
               Failed to load research centers: {error}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Check, X, Eye, ShieldAlert } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
 import { DataTable } from "@/components/Table";
-import { researchGuideNav } from "@/data/roleNav";
+import { facultyNav } from "@/data/roleNav";
 import { apiGet, apiPatchJson, type ApiListResponse } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -196,15 +196,15 @@ export default function GuidePortfolioReviewsPage() {
   return (
     <PageLayout
       title="Portfolio Reviews"
-      userName={user?.name || "Research Guide"}
-      roleLabel="Research Guide"
-      navItems={researchGuideNav}
+      userName={user?.name || "Faculty"}
+      roleLabel="Faculty Member"
+      navItems={facultyNav}
       activeItem="Portfolio Reviews"
     >
       <div className="space-y-6">
         <div>
           <Link
-            href="/research-guide"
+            href="/faculty"
             className="inline-flex items-center gap-2 text-xs font-semibold text-[color:var(--maroon-700)] hover:underline"
           >
             <ArrowLeft className="h-4 w-4" />

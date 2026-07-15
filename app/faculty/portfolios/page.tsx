@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, BookOpen, User, Eye, Sparkles } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
 import { DataTable } from "@/components/Table";
-import { coordinatorNav } from "@/data/roleNav";
+import { facultyNav } from "@/data/roleNav";
 import { apiGet, type ApiListResponse } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -118,15 +118,15 @@ export default function CoordinatorScholarPortfoliosPage() {
   return (
     <PageLayout
       title="Scholar Portfolios"
-      userName={user?.name || "Coordinator"}
-      roleLabel={user?.role === "admin" ? "Administrator" : "Coordinator"}
-      navItems={coordinatorNav}
+      userName={user?.name || "Faculty"}
+      roleLabel="Faculty Member"
+      navItems={facultyNav}
       activeItem="Scholar Portfolios"
     >
       <div className="space-y-6">
         <div>
           <Link
-            href="/coordinator"
+            href="/faculty"
             className="inline-flex items-center gap-2 text-xs font-semibold text-[color:var(--maroon-700)] hover:underline"
           >
             <ArrowLeft className="h-4 w-4" />

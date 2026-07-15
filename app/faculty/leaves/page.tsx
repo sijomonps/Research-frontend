@@ -5,7 +5,8 @@ import Link from "next/link";
 import { ArrowLeft, Check, X, Eye } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
 import { DataTable } from "@/components/Table";
-import { researchGuideNav } from "@/data/roleNav";
+import { StatusBadge } from "@/components/StatusBadge";
+import { facultyNav } from "@/data/roleNav";
 import { apiGet, apiPatchJson, type ApiListResponse } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -23,6 +24,8 @@ type LeaveItem = {
   totalDays: number;
   reason: string;
   status: string;
+  guideNote?: string;
+  coordinatorNote?: string;
   document?: {
     url: string;
     originalName: string;
@@ -41,25 +44,33 @@ const formatDate = (value?: string) => {
   });
 };
 
-export default function GuideLeaveReviewsPage() {
+export default function CoordinatorLeavesPage() {
   const { user } = useAuth();
   const [leaves, setLeaves] = useState<LeaveItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Review modal state
+  // Actions state
   const [selectedLeave, setSelectedLeave] = useState<LeaveItem | null>(null);
   const [note, setNote] = useState("");
-  const [actionStatus, setActionStatus] = useState<"ApprovedByGuide" | "Rejected" | null>(null);
+  const [actionStatus, setActionStatus] = useState<"ApprovedByCoordinator" | "Rejected" | null>(null);
   const [processing, setProcessing] = useState(false);
 
   const loadLeaves = async () => {
-    if (!user?._id) return;
+    if (!user) return;
     try {
       setLoading(true);
       setError(null);
-      // Fetches leaves with status Pending that are under this guide
-      const res = await apiGet<ApiListResponse<LeaveItem>>(`/leaves?guideId=${user._id}&status=Pending`);
+      // Fetch leaves for the coordinator's department.
+      // If admin, fetch all leaves.
+      const path = user.role === "admin"
+        ? "/leaves"
+        : `/leaves?department=${user.department || ""}`;
+      const res = await apiGet<ApiListResponse<LeaveItem>>(path);
+      // We display leaves that are:
+      // - Pending guide approval (ApprovedByGuide is needed first, but we display all to give visibility)
+      // - Approved by guide (these need coordinator's final approval)
+      // - Already approved/rejected by coordinator
       setLeaves(res.items);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load leave requests");
@@ -70,7 +81,7 @@ export default function GuideLeaveReviewsPage() {
 
   useEffect(() => {
     loadLeaves();
-  }, [user?._id]);
+  }, [user]);
 
   const handleAction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,11 +107,12 @@ export default function GuideLeaveReviewsPage() {
   };
 
   const columns = [
-    { key: "scholar", label: "Scholar" },
+    { key: "scholar", label: "Scholar Name" },
     { key: "type", label: "Leave Type" },
     { key: "dates", label: "Duration" },
     { key: "days", label: "Days", align: "center" as const },
     { key: "reason", label: "Reason" },
+    { key: "status", label: "Status" },
     { key: "action", label: "Action", align: "right" as const },
   ];
 
@@ -117,6 +129,21 @@ export default function GuideLeaveReviewsPage() {
       dates: `${formatDate(item.startDate)} - ${formatDate(item.endDate)}`,
       days: item.totalDays,
       reason: <span className="max-w-[150px] truncate block" title={item.reason}>{item.reason}</span>,
+      status: (
+        <div className="flex flex-col items-start gap-1">
+          <StatusBadge status={item.status} />
+          {item.guideNote ? (
+            <span className="text-[10px] text-slate-500 max-w-[150px] truncate" title={item.guideNote}>
+              Guide: {item.guideNote}
+            </span>
+          ) : null}
+          {item.coordinatorNote ? (
+            <span className="text-[10px] text-slate-500 max-w-[150px] truncate" title={item.coordinatorNote}>
+              Coord: {item.coordinatorNote}
+            </span>
+          ) : null}
+        </div>
+      ),
       action: (
         <div className="flex justify-end gap-2">
           {item.document?.url ? (
@@ -125,31 +152,35 @@ export default function GuideLeaveReviewsPage() {
               target="_blank"
               rel="noreferrer"
               className="p-1 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-full"
-              title="View leave attachment proof"
+              title="View Leave Proof"
             >
               <Eye className="h-4 w-4" />
             </a>
           ) : null}
-          <button
-            onClick={() => {
-              setSelectedLeave(item);
-              setActionStatus("ApprovedByGuide");
-            }}
-            className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-full"
-            title="Approve Leave"
-          >
-            <Check className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => {
-              setSelectedLeave(item);
-              setActionStatus("Rejected");
-            }}
-            className="p-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-full"
-            title="Reject Leave"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          {item.status === "ApprovedByGuide" ? (
+            <>
+              <button
+                onClick={() => {
+                  setSelectedLeave(item);
+                  setActionStatus("ApprovedByCoordinator");
+                }}
+                className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-full"
+                title="Final Approve Leave"
+              >
+                <Check className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedLeave(item);
+                  setActionStatus("Rejected");
+                }}
+                className="p-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-full"
+                title="Reject Leave"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </>
+          ) : null}
         </div>
       ),
     }));
@@ -157,16 +188,16 @@ export default function GuideLeaveReviewsPage() {
 
   return (
     <PageLayout
-      title="Leave Reviews"
-      userName={user?.name || "Research Guide"}
-      roleLabel="Research Guide"
-      navItems={researchGuideNav}
-      activeItem="Leave Reviews"
+      title="Research Center Leaves"
+      userName={user?.name || "Faculty"}
+      roleLabel="Faculty Member"
+      navItems={facultyNav}
+      activeItem="Research Center Leaves"
     >
       <div className="space-y-6">
         <div>
           <Link
-            href="/research-guide"
+            href="/faculty"
             className="inline-flex items-center gap-2 text-xs font-semibold text-[color:var(--maroon-700)] hover:underline"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -175,13 +206,15 @@ export default function GuideLeaveReviewsPage() {
           <h1 className="font-display text-2xl font-bold text-[color:var(--maroon-900)] mt-2">
             Scholar Leave Applications
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Review leaves applied by scholars under your guidance.</p>
+          <p className="text-sm text-slate-500 mt-1">
+            Review and grant final coordinator sign-off on pre-approved scholar leaves.
+          </p>
         </div>
 
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
         {loading ? (
-          <p className="text-sm text-slate-500">Loading leave approvals...</p>
+          <p className="text-sm text-slate-500">Loading leaves database...</p>
         ) : (
           <DataTable columns={columns} rows={rows} />
         )}
@@ -191,7 +224,7 @@ export default function GuideLeaveReviewsPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-xs">
             <div className="w-full max-w-lg rounded-3xl border border-[color:var(--border)] bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
               <h3 className="font-display text-lg font-bold text-[color:var(--maroon-900)]">
-                {actionStatus === "ApprovedByGuide" ? "Approve Scholar Leave" : "Reject Scholar Leave"}
+                {actionStatus === "ApprovedByCoordinator" ? "Final Approve Leave" : "Reject Leave Request"}
               </h3>
               <p className="text-xs text-slate-500 mt-1">
                 Scholar: <span className="font-semibold text-slate-700">{selectedLeave.scholar?.name}</span>
@@ -201,16 +234,21 @@ export default function GuideLeaveReviewsPage() {
                 <p><strong>Leave Type:</strong> {selectedLeave.leaveType}</p>
                 <p><strong>Duration:</strong> {formatDate(selectedLeave.startDate)} to {formatDate(selectedLeave.endDate)} ({selectedLeave.totalDays} Days)</p>
                 <p><strong>Reason:</strong> {selectedLeave.reason}</p>
+                {selectedLeave.guideNote ? (
+                  <p className="text-[color:var(--maroon-800)] font-semibold">
+                    <strong>Guide Remarks:</strong> {selectedLeave.guideNote}
+                  </p>
+                ) : null}
               </div>
 
               <form onSubmit={handleAction} className="mt-4 space-y-4">
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="note">
-                    Review Remarks / Comments
+                    Coordinator Review Note / Comments
                   </label>
                   <textarea
                     id="note"
-                    placeholder="Enter approval note or rejection reason"
+                    placeholder="Enter coordinator remarks"
                     className="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-white px-3 py-2 text-sm text-slate-700 shadow-sm min-h-[80px]"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
@@ -247,12 +285,12 @@ export default function GuideLeaveReviewsPage() {
                     type="submit"
                     disabled={processing}
                     className={`rounded-full px-5 py-2 text-xs font-semibold text-white shadow-sm transition-all duration-200 ${
-                      actionStatus === "ApprovedByGuide"
+                      actionStatus === "ApprovedByCoordinator"
                         ? "bg-emerald-600 hover:bg-emerald-700"
                         : "bg-rose-600 hover:bg-rose-700"
                     }`}
                   >
-                    {processing ? "Processing..." : actionStatus === "ApprovedByGuide" ? "Approve Leave" : "Reject Leave"}
+                    {processing ? "Processing..." : actionStatus === "ApprovedByCoordinator" ? "Final Approve" : "Reject Leave"}
                   </button>
                 </div>
               </form>
@@ -263,3 +301,5 @@ export default function GuideLeaveReviewsPage() {
     </PageLayout>
   );
 }
+
+

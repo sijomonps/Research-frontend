@@ -12,6 +12,9 @@ import {
   X,
   Edit2,
   Trash2,
+  LayoutDashboard,
+  Coins,
+  Calendar,
 } from "lucide-react";
 import { DashboardCards } from "@/components/DashboardCards";
 import { PageLayout } from "@/components/PageLayout";
@@ -25,7 +28,7 @@ type Submission = {
   department: string;
   submittedAt?: string;
   status: string;
-  scholar?: { name?: string };
+  scholar?: { _id?: string; name?: string; guide?: any };
 };
 
 type UserType = {
@@ -35,6 +38,7 @@ type UserType = {
   role: string;
   roles: string[];
   department?: string;
+  permissions?: string[];
 };
 
 // Initial faculty registry tabs
@@ -54,16 +58,17 @@ const DEFAULT_FACULTY_TABS_DATA: Record<string, any[]> = {
   projects: []
 };
 
-
-
 export default function FacultyDashboard() {
   const router = useRouter();
   const { user, login, logout } = useAuth();
   
   // Dashboard states
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Guide and Coordinator Metrics states
+  const [guideMetrics, setGuideMetrics] = useState<any[] | null>(null);
+  const [coordinatorMetrics, setCoordinatorMetrics] = useState<any[] | null>(null);
 
   // Tab configurations
   const [tabsList, setTabsList] = useState<any[]>([]);
@@ -105,7 +110,77 @@ export default function FacultyDashboard() {
     let isMounted = true;
 
     const loadData = async () => {
-      if (isMounted) setLoading(false);
+      if (!user?._id) return;
+      try {
+        setLoading(true);
+        setError(null);
+
+        const isGuide = user.roles?.includes("research_guide") || user.permissions?.includes("research_guide");
+        const isCoordinator = user.roles?.includes("coordinator") || user.permissions?.includes("coordinator");
+
+        const promises: Promise<any>[] = [];
+
+        if (isGuide) {
+          promises.push(
+            apiGet<ApiListResponse<any>>("/users?role=scholar"),
+            apiGet<ApiListResponse<any>>(`/portfolio/approvals?guideId=${user._id}`),
+            apiGet<ApiListResponse<any>>(`/leaves?guideId=${user._id}&status=Pending`)
+          );
+        } else {
+          promises.push(Promise.resolve(null), Promise.resolve(null), Promise.resolve(null));
+        }
+
+        if (isCoordinator) {
+          const deptFilter = user.department || "";
+          promises.push(
+            apiGet<ApiListResponse<any>>(`/submissions?department=${deptFilter}`),
+            apiGet<ApiListResponse<any>>(`/leaves?department=${deptFilter}`),
+            apiGet<ApiListResponse<any>>("/departments")
+          );
+        } else {
+          promises.push(Promise.resolve(null), Promise.resolve(null), Promise.resolve(null));
+        }
+
+        const [
+          scholarsRes,
+          portfolioApprovalsRes,
+          pendingLeavesRes,
+          coordinatorSubmissionsRes,
+          coordinatorLeavesRes,
+          departmentsRes
+        ] = await Promise.all(promises);
+
+        if (!isMounted) return;
+
+        if (isGuide && scholarsRes) {
+          // Filter scholars under this guide
+          const myScholars = scholarsRes.items.filter((s: any) => s.guide?._id === user._id || s.guide === user._id);
+          const pendingPortfolioReviews = portfolioApprovalsRes ? portfolioApprovalsRes.items.filter((item: any) => item.category !== "leave").length : 0;
+          const pendingLeavesCount = pendingLeavesRes ? pendingLeavesRes.items.length : 0;
+
+          setGuideMetrics([
+            { label: "My Scholars", value: `${myScholars.length}`, icon: Users },
+            { label: "Pending Portfolio Reviews", value: `${pendingPortfolioReviews}`, icon: ClipboardCheck },
+            { label: "Pending Leave Reviews", value: `${pendingLeavesCount}`, icon: Calendar },
+          ]);
+        }
+
+        if (isCoordinator && coordinatorSubmissionsRes) {
+          const firstDept = departmentsRes?.items.find((d: any) => d.name === user.department || d.coordinator?._id === user._id) || departmentsRes?.items[0] || null;
+          const pendingCoordLeaves = coordinatorLeavesRes ? coordinatorLeavesRes.items.filter((l: any) => l.status === "ApprovedByGuide").length : 0;
+
+          setCoordinatorMetrics([
+            { label: "Research Center Submissions", value: `${coordinatorSubmissionsRes.items.length}`, icon: FileText },
+            { label: "Pending Center Leaves", value: `${pendingCoordLeaves}`, icon: Calendar },
+            { label: "Research Center", value: firstDept?.name || user.department || "MCA", icon: NotebookText },
+          ]);
+        }
+      } catch (err) {
+        if (!isMounted) return;
+        setError(err instanceof Error ? err.message : "Failed to load dashboard metrics");
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     };
 
     const syncPreferences = async (updatedPrefs: any) => {
@@ -454,10 +529,22 @@ export default function FacultyDashboard() {
       navItems={facultyNav}
       activeItem="Dashboard"
     >
-
-
       {error ? (
         <p className="text-sm text-red-600 my-4">Failed to load dashboard: {error}</p>
+      ) : null}
+
+      {guideMetrics ? (
+        <div className="mb-6">
+          <h3 className="font-display text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider">Research Guide Modules</h3>
+          <DashboardCards items={guideMetrics} />
+        </div>
+      ) : null}
+
+      {coordinatorMetrics ? (
+        <div className="mb-6">
+          <h3 className="font-display text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider">Coordinator Modules</h3>
+          <DashboardCards items={coordinatorMetrics} />
+        </div>
       ) : null}
 
       {/* Profile details card integrated inside dashboard */}

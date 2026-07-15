@@ -28,6 +28,7 @@ type ResearchCenter = {
   _id: string;
   name: string;
   code?: string;
+  department?: string;
 };
 
 type Guide = {
@@ -35,6 +36,7 @@ type Guide = {
   name: string;
   email?: string;
   researchCenter?: { _id?: string; name?: string; code?: string } | null;
+  department?: string;
 };
 
 type Department = {
@@ -88,8 +90,8 @@ export default function AdminUsersPage() {
   const [formState, setFormState] = useState({
     name: "",
     email: "",
-    roles: ["scholar"],
-    department: "",
+    role: "scholar",
+    permissions: [] as string[],
     researchCenterId: "",
     guideId: "",
   });
@@ -150,33 +152,25 @@ export default function AdminUsersPage() {
 
   const handleFormChange = (
     field: keyof typeof formState,
-    value: string
+    value: any
   ) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleRoleToggle = (role: string, checked: boolean) => {
+  const handlePermissionToggle = (permission: string, checked: boolean) => {
     setFormState((prev) => {
-      const nextRoles = checked
-        ? Array.from(new Set([...prev.roles, role]))
-        : prev.roles.filter((item) => item !== role);
+      const nextPerms = checked
+        ? Array.from(new Set([...prev.permissions, permission]))
+        : prev.permissions.filter((item) => item !== permission);
       return {
         ...prev,
-        roles: nextRoles,
+        permissions: nextPerms,
       };
     });
   };
 
-  const requiresResearchCenter =
-    formState.roles.includes("scholar") ||
-    formState.roles.includes("research_guide");
-  const requiresGuide = formState.roles.includes("scholar");
-
-  const availableGuides = formState.researchCenterId
-    ? guides.filter(
-        (guide) => guide.researchCenter?._id === formState.researchCenterId
-      )
-    : guides;
+  const requiresResearchCenter = formState.role === "faculty";
+  const requiresGuide = formState.role === "scholar";
 
   const handleCreateUser = async () => {
     try {
@@ -184,36 +178,44 @@ export default function AdminUsersPage() {
       setSaveError(null);
       setSaveSuccess(null);
 
-      const primaryRole = formState.roles[0];
-
-      if (formState.roles.length === 0 || !primaryRole) {
-        setSaveError("Select at least one role for the user.");
-        setSaving(false);
-        return;
-      }
+      const mainRole = formState.role;
 
       if (requiresResearchCenter && !formState.researchCenterId) {
-        setSaveError("Research center is required for the selected roles.");
+        setSaveError("Research center is required for Faculty.");
         setSaving(false);
         return;
       }
 
       if (requiresGuide && !formState.guideId) {
-        setSaveError("Guide is required for scholars.");
+        setSaveError("Research guide is required for Scholars.");
         setSaving(false);
         return;
       }
 
-      const selectedCenter = researchCenters.find((c) => c._id === formState.researchCenterId);
+      let finalCenterId = formState.researchCenterId;
+      let finalDept = "";
+
+      if (mainRole === "scholar") {
+        const selectedGuide = guides.find((g) => g._id === formState.guideId);
+        if (selectedGuide) {
+          finalCenterId = selectedGuide.researchCenter?._id || (selectedGuide.researchCenter as any) || "";
+          finalDept = selectedGuide.researchCenter?.name || selectedGuide.department || "";
+        }
+      } else if (mainRole === "faculty") {
+        const selectedCenter = researchCenters.find((c) => c._id === formState.researchCenterId);
+        if (selectedCenter) {
+          finalDept = selectedCenter.department || "";
+        }
+      }
+
       const payload = {
         name: formState.name.trim(),
         email: formState.email.trim(),
-        role: primaryRole,
-        roles: formState.roles,
-        department: selectedCenter ? selectedCenter.name : undefined,
-        researchCenterId: requiresResearchCenter
-          ? formState.researchCenterId
-          : undefined,
+        role: mainRole,
+        roles: [mainRole],
+        permissions: mainRole === "faculty" ? formState.permissions : [],
+        department: finalDept || undefined,
+        researchCenterId: finalCenterId || undefined,
         guideId: requiresGuide ? formState.guideId : undefined,
       };
 
@@ -222,18 +224,17 @@ export default function AdminUsersPage() {
       setFormState({
         name: "",
         email: "",
-        roles: ["scholar"],
-        department: "",
+        role: "scholar",
+        permissions: [],
         researchCenterId: "",
         guideId: "",
       });
       await loadUsers();
-      if (formState.roles.includes("research_guide")) {
-        const guidesRes = await apiGet<ApiListResponse<Guide>>(
-          "/users?role=research_guide"
-        );
-        setGuides(guidesRes.items);
-      }
+      
+      const guidesRes = await apiGet<ApiListResponse<Guide>>(
+        "/users?role=research_guide"
+      );
+      setGuides(guidesRes.items);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create user";
       setSaveError(message);
@@ -375,26 +376,51 @@ export default function AdminUsersPage() {
               </div>
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="user-role">
-                  Roles
+                  Primary Role
                 </label>
-                <div className="mt-2 grid gap-2 rounded-xl border border-[color:var(--border)] bg-white p-3 text-xs text-slate-600 shadow-sm">
-                  {roleOptions.map((role) => (
-                    <label key={role} className="flex items-center gap-2">
+                <select
+                  id="user-role"
+                  className={inputClass}
+                  value={formState.role}
+                  onChange={(event) => handleFormChange("role", event.target.value)}
+                >
+                  <option value="scholar">Scholar</option>
+                  <option value="faculty">Faculty Member</option>
+                  <option value="admin">Administrator</option>
+                  <option value="library">Librarian</option>
+                </select>
+              </div>
+
+              {formState.role === "faculty" && (
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Faculty Permissions (Optional)
+                  </label>
+                  <div className="mt-2 flex flex-wrap gap-4 rounded-xl border border-[color:var(--border)] bg-white p-3 text-xs text-slate-600 shadow-sm">
+                    <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={formState.roles.includes(role)}
-                        onChange={(event) => handleRoleToggle(role, event.target.checked)}
+                        checked={formState.permissions.includes("research_guide")}
+                        onChange={(event) => handlePermissionToggle("research_guide", event.target.checked)}
                       />
-                      <span>{roleLabels[role] ?? role}</span>
+                      <span>Research Guide</span>
                     </label>
-                  ))}
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formState.permissions.includes("coordinator")}
+                        onChange={(event) => handlePermissionToggle("coordinator", event.target.checked)}
+                      />
+                      <span>Research Center Coordinator</span>
+                    </label>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {requiresResearchCenter ? (
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="user-research-center">
-                    Research center
+                    Research Center
                   </label>
                   <select
                     id="user-research-center"
@@ -402,7 +428,7 @@ export default function AdminUsersPage() {
                     value={formState.researchCenterId}
                     onChange={(event) => handleFormChange("researchCenterId", event.target.value)}
                   >
-                    <option value="">Select research center</option>
+                    <option value="">Select Research Center</option>
                     {researchCenters.map((center) => (
                       <option key={center._id} value={center._id}>
                         {center.name}
@@ -411,25 +437,39 @@ export default function AdminUsersPage() {
                   </select>
                 </div>
               ) : null}
+
               {requiresGuide ? (
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="user-guide">
-                    Research guide
-                  </label>
-                  <select
-                    id="user-guide"
-                    className={inputClass}
-                    value={formState.guideId}
-                    onChange={(event) => handleFormChange("guideId", event.target.value)}
-                  >
-                    <option value="">Select guide</option>
-                    {availableGuides.map((guide) => (
-                      <option key={guide._id} value={guide._id}>
-                        {guide.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="user-guide">
+                      Research Guide
+                    </label>
+                    <select
+                      id="user-guide"
+                      className={inputClass}
+                      value={formState.guideId}
+                      onChange={(event) => handleFormChange("guideId", event.target.value)}
+                    >
+                      <option value="">Select Research Guide</option>
+                      {guides.map((guide) => (
+                        <option key={guide._id} value={guide._id}>
+                          {guide.name} ({guide.department || "No Department"})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Research Center (Auto-Assigned)
+                    </label>
+                    <div className="mt-2 rounded-xl border border-[color:var(--border)] bg-slate-100 px-3 py-2 text-xs text-slate-500 shadow-sm">
+                      {(() => {
+                        const selectedGuideObj = guides.find((g) => g._id === formState.guideId);
+                        return selectedGuideObj?.researchCenter?.name || "Auto-assigned from Guide";
+                      })()}
+                    </div>
+                  </div>
+                </>
               ) : null}
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-3">
