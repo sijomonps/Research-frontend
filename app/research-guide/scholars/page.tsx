@@ -16,6 +16,8 @@ type Scholar = {
   email?: string;
   department?: string;
   status?: string;
+  avatar?: string;
+  preferences?: any;
   guide?: {
     _id: string;
     name?: string;
@@ -23,6 +25,7 @@ type Scholar = {
 };
 
 const columns = [
+  { key: "avatar", label: "Photo" },
   { key: "name", label: "Name" },
   { key: "email", label: "Email" },
   { key: "department", label: "Research Center" },
@@ -75,8 +78,19 @@ export default function ResearchGuideScholarsPage() {
 
   const rows = useMemo(
     () =>
-      scholars.map((scholar) => ({
+      scholars.map((scholar) => {
+        const avatarUrl = scholar.avatar || scholar.preferences?.scholar_avatar;
+        return {
         id: scholar._id,
+        avatar: (
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200 shrink-0">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={scholar.name} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-[10px] font-bold text-slate-400">{(scholar.name || "SC").substring(0, 2).toUpperCase()}</span>
+            )}
+          </div>
+        ),
         name: scholar.name ?? "Unknown",
         email: scholar.email ?? "N/A",
         department: scholar.department ?? "N/A",
@@ -100,8 +114,9 @@ export default function ResearchGuideScholarsPage() {
               View
             </Link>
           </div>
-        ),
-      })),
+        )
+      };
+    }),
     [scholars, approvingScholarId]
   );
 

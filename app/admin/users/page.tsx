@@ -18,6 +18,8 @@ type User = {
   roles?: string[];
   department?: string;
   status?: string;
+  avatar?: string;
+  preferences?: any;
   researchCenter?: { _id?: string; name?: string; code?: string } | null;
   guide?: { _id?: string; name?: string; email?: string } | null;
 };
@@ -41,6 +43,7 @@ type Department = {
 };
 
 const columns = [
+  { key: "avatar", label: "Photo" },
   { key: "name", label: "Name" },
   { key: "email", label: "Email" },
   { key: "roles", label: "Roles" },
@@ -258,8 +261,19 @@ export default function AdminUsersPage() {
 
   const rows = useMemo(
     () =>
-      users.map((user) => ({
+      users.map((user) => {
+        const avatarUrl = user.avatar || user.preferences?.scholar_avatar || user.preferences?.faculty_avatar || user.preferences?.research_guide_avatar || user.preferences?.coordinator_avatar;
+        return {
         id: user._id,
+        avatar: (
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200 shrink-0">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-[10px] font-bold text-slate-400">{user.name.substring(0, 2).toUpperCase()}</span>
+            )}
+          </div>
+        ),
         name: user.name,
         email: user.email,
         roles: (user.roles ?? (user.role ? [user.role] : []))
@@ -296,8 +310,9 @@ export default function AdminUsersPage() {
               {deletingUserId === user._id ? "Deleting..." : "Delete"}
             </button>
           </div>
-        ),
-      })),
+        )
+      };
+    }),
     [deletingUserId, approvingUserId, handleDeleteUser, users]
   );
 

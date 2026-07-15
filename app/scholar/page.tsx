@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   CheckCircle,
@@ -15,7 +16,7 @@ import {
 import { DashboardCards } from "@/components/DashboardCards";
 import { PageLayout } from "@/components/PageLayout";
 import { scholarNav } from "@/data/roleNav";
-import { apiGet, apiPatchJson, type ApiListResponse } from "@/lib/api";
+import { apiGet, apiPatchJson, apiPostForm, apiDelete, transformGoogleDriveLink, type ApiListResponse } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 
 type Submission = {
@@ -61,7 +62,8 @@ const DEFAULT_SCHOLAR_TABS_DATA: Record<string, any[]> = {
 };
 
 export default function ScholarDashboard() {
-  const { user, login } = useAuth();
+  const router = useRouter();
+  const { user, login, logout } = useAuth();
   const [metrics, setMetrics] = useState(defaultMetrics);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +75,7 @@ export default function ScholarDashboard() {
   const [profileDept, setProfileDept] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
   const [profileGuide, setProfileGuide] = useState("");
+  const [profileAvatar, setProfileAvatar] = useState("");
   const [uniqueId, setUniqueId] = useState("");
 
   // Scholar Tab Config & Data State
@@ -219,6 +222,7 @@ export default function ScholarDashboard() {
       setProfileEmail(user.email || "");
       setProfileDept(user.department || "");
       setProfileGuide(user.guide?.name || "");
+      setProfileAvatar(user.preferences?.scholar_avatar || "");
       
       const savedId = localStorage.getItem(`scholar_${user._id}_profile_unique_id`);
       setProfileUniqueId(savedId || (user._id ? `MCKA-SCH-${user._id.slice(-4).toUpperCase()}` : ""));
@@ -226,6 +230,34 @@ export default function ScholarDashboard() {
   }, [user, showEditProfileModal]);
 
   // Handle saving modified profile details
+  // Image Upload Handler
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await apiPostForm<{ fileUrl: string }>("/uploads", formData);
+      if (res.fileUrl) {
+        setProfileAvatar(res.fileUrl);
+      }
+    } catch (err) {
+      alert("Failed to upload image.");
+    }
+  };
+
+  // Delete Account Handler
+  const handleDeleteAccount = async () => {
+    if (!confirm("Are you absolutely sure you want to delete your account? This action cannot be undone.")) return;
+    try {
+      await apiDelete(`/users/${user?._id}`);
+      logout();
+      router.push("/");
+    } catch (err) {
+      alert("Failed to delete account. Please ensure you have permission.");
+    }
+  };
+
   const handleSaveProfile = async () => {
     if (!user?._id) return;
     try {
@@ -237,7 +269,11 @@ export default function ScholarDashboard() {
         email: profileEmail,
         department: profileDept,
         uniqueId: profileUniqueId,
-        guide: { name: profileGuide }
+        avatar: transformGoogleDriveLink(profileAvatar),
+        preferences: {
+          ...(user.preferences || {}),
+          scholar_avatar: transformGoogleDriveLink(profileAvatar)
+        }
       });
 
       // Update state in view
@@ -424,10 +460,27 @@ export default function ScholarDashboard() {
       {/* Profile Card Section with solid colors matching website */}
       <div className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm mb-8">
         <div className="flex flex-col md:flex-row gap-6 items-start">
-          {/* Profile Photo Placeholder Icon */}
-          <div className="w-32 h-32 md:w-36 md:h-36 relative rounded-lg overflow-hidden border border-[color:var(--border)] flex-shrink-0 bg-slate-50 flex items-center justify-center text-slate-400">
-            <User className="h-16 w-16" />
-          </div>
+          {/* Avatar frame */}
+          <label className="w-32 h-32 md:w-36 md:h-36 relative rounded-lg overflow-hidden border border-[color:var(--border)] flex-shrink-0 bg-slate-50 flex items-center justify-center cursor-pointer group">
+            {profileAvatar ? (
+              <img
+                src={profileAvatar}
+                alt={profileName || user?.name || "Scholar"}
+                className="w-full h-full object-cover group-hover:opacity-50 transition-opacity"
+                onError={(e) => {
+                  e.currentTarget.src = "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150";
+                }}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center font-bold text-3xl text-[#9B0302] bg-red-50 group-hover:bg-red-100 transition-colors">
+                {(profileName || user?.name || "SC").split(" ").map(n => n[0]).join("").substring(0, 2)}
+              </div>
+            )}
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+               <span className="bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded">Change Photo</span>
+            </div>
+            <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+          </label>
           
           {/* Details */}
           <div className="flex-1 space-y-1.5 w-full">
@@ -672,13 +725,32 @@ export default function ScholarDashboard() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Research Guide</label>
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Photo URL (Optional)</label>
                 <input
                   type="text"
-                  value={profileGuide}
-                  onChange={(e) => setProfileGuide(e.target.value)}
+                  value={profileAvatar}
+                  onChange={(e) => setProfileAvatar(transformGoogleDriveLink(e.target.value))}
+                  placeholder="You can also click your avatar directly to upload a file"
                   className="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-white px-3.5 py-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#9B0302]"
                 />
+              </div>
+              
+              <div className="pt-4 border-t border-[color:var(--border)] space-y-3">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Security Settings</label>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => router.push(`/${user?.role || "scholar"}/profile/change-password`)}
+                    className="px-4 py-2 rounded-xl border border-[color:var(--border)] bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 transition"
+                  >
+                    Change Password
+                  </button>
+                  <button
+                    onClick={handleDeleteAccount}
+                    className="px-4 py-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-semibold transition"
+                  >
+                    Delete Account
+                  </button>
+                </div>
               </div>
             </div>
 

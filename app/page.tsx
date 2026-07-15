@@ -511,7 +511,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                {regRole === "scholar" ? (
+                {regRole === "scholar" && (
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Research Guide</label>
                     <div className="relative">
@@ -533,12 +533,15 @@ export default function Home() {
                       </select>
                     </div>
                   </div>
-                ) : (
+                )}
+
+                {regRole && regRole !== "scholar" && (
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Research Center <span className="text-slate-400 font-normal capitalize">(Optional)</span></label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Research Center</label>
                     <div className="relative">
                       <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <select
+                        required
                         value={regDept}
                         onChange={(e) => setRegDept(e.target.value)}
                         className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#9B0302]/20 focus:border-[#9B0302] transition-all cursor-pointer appearance-none"

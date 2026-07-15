@@ -148,3 +148,17 @@ export const saveUserProfileData = async (
 export const apiDelete = async <T>(path: string, _init?: RequestInit): Promise<T> => {
   return makeRequest<T>("DELETE", path);
 };
+
+export function transformGoogleDriveLink(url: string): string {
+  if (!url) return url;
+  const trimmed = url.trim();
+  const matchD = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (matchD && matchD[1]) {
+    return `https://lh3.googleusercontent.com/d/${matchD[1]}`;
+  }
+  const matchId = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (matchId && matchId[1]) {
+    return `https://lh3.googleusercontent.com/d/${matchId[1]}`;
+  }
+  return trimmed;
+}

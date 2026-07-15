@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   ClipboardCheck,
@@ -18,7 +19,7 @@ import { PageLayout } from "@/components/PageLayout";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DataTable } from "@/components/Table";
 import { researchGuideNav } from "@/data/roleNav";
-import { apiGet, apiPatchJson, type ApiListResponse } from "@/lib/api";
+import { apiGet, apiPatchJson, apiPostForm, apiDelete, transformGoogleDriveLink, type ApiListResponse } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 
 type Submission = {
@@ -94,7 +95,8 @@ const approvalColumns = [
 ];
 
 export default function ResearchGuideDashboard() {
-  const { user, login } = useAuth();
+  const router = useRouter();
+  const { user, login, logout } = useAuth();
   
   // Dashboard metrics & content states
   const [metrics, setMetrics] = useState(defaultMetrics);
@@ -242,6 +244,34 @@ export default function ResearchGuideDashboard() {
     }
   };
 
+  // Image Upload Handler
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await apiPostForm<{ fileUrl: string }>("/uploads", formData);
+      if (res.fileUrl) {
+        setProfileAvatar(res.fileUrl);
+      }
+    } catch (err) {
+      alert("Failed to upload image.");
+    }
+  };
+
+  // Delete Account Handler
+  const handleDeleteAccount = async () => {
+    if (!confirm("Are you absolutely sure you want to delete your account? This action cannot be undone.")) return;
+    try {
+      await apiDelete(`/users/${user?._id}`);
+      logout();
+      router.push("/");
+    } catch (err) {
+      alert("Failed to delete account. Please ensure you have permission.");
+    }
+  };
+
   // Save profile edits
   const handleSaveProfile = async () => {
     if (!profileName.trim()) {
@@ -269,7 +299,7 @@ export default function ResearchGuideDashboard() {
         department: profileDept,
         designation: profileDesignation,
         uniqueId: profileUniqueId,
-        avatar: profileAvatar,
+        avatar: transformGoogleDriveLink(profileAvatar),
         preferences: {
           ...(user.preferences || {}),
           research_guide_profile_expertise: profileExpertise,
@@ -483,22 +513,26 @@ export default function ResearchGuideDashboard() {
       <div className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm mb-6">
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
           {/* Avatar frame */}
-          <div className="w-32 h-32 md:w-36 md:h-36 relative rounded-lg overflow-hidden border border-[color:var(--border)] flex-shrink-0 bg-slate-50 flex items-center justify-center">
+          <label className="w-32 h-32 md:w-36 md:h-36 relative rounded-lg overflow-hidden border border-[color:var(--border)] flex-shrink-0 bg-slate-50 flex items-center justify-center cursor-pointer group">
             {profileAvatar ? (
               <img
                 src={profileAvatar}
                 alt={profileName}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover group-hover:opacity-50 transition-opacity"
                 onError={(e) => {
                   e.currentTarget.src = "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150";
                 }}
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center font-bold text-3xl text-[#9B0302] bg-red-50">
+              <div className="w-full h-full flex items-center justify-center font-bold text-3xl text-[#9B0302] bg-red-50 group-hover:bg-red-100 transition-colors">
                 {(profileName || user?.name || "RG").split(" ").map(n => n[0]).join("").substring(0, 2)}
               </div>
             )}
-          </div>
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+               <span className="bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded">Change Photo</span>
+            </div>
+            <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+          </label>
           
           {/* Details */}
           <div className="flex-1 space-y-1.5 w-full">
@@ -531,67 +565,12 @@ export default function ResearchGuideDashboard() {
                 <span className="font-semibold text-slate-500">Email : </span>
                 <span className="font-bold text-[#9B0302]">{profileEmail || user?.email}</span>
               </div>
-              <div>
-                <span className="font-semibold text-slate-500">Guided Scholars : </span>
-                <span className="font-bold text-slate-800">{profileGuidedScholars ? `${profileGuidedScholars} Scholars` : "Not Set"}</span>
-              </div>
-              <div className="md:col-span-2">
-                <span className="font-semibold text-slate-500">Area of Expertise : </span>
-                <span className="font-bold text-slate-800">{profileExpertise || "Not Set"}</span>
-              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <section className="grid gap-6 lg:grid-cols-2 mb-6">
-        <div className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-[0_14px_28px_rgba(91,11,22,0.08)]">
-          <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] pb-4">
-            <div>
-              <h2 className="font-display text-lg text-[color:var(--maroon-900)]">
-                Recent submissions
-              </h2>
-              <p className="text-sm text-slate-500">
-                Latest scholar submissions awaiting review.
-              </p>
-            </div>
-          </div>
-          <div className="mt-4">
-            {loading ? (
-              <p className="text-sm text-slate-500">Loading submissions...</p>
-            ) : error ? (
-              <p className="text-sm text-red-600">
-                Failed to load submissions: {error}
-              </p>
-            ) : (
-              <DataTable columns={submissionColumns} rows={submissionRows} />
-            )}
-          </div>
-        </div>
-        <div className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-[0_14px_28px_rgba(91,11,22,0.08)]">
-          <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] pb-4">
-            <div>
-              <h2 className="font-display text-lg text-[color:var(--maroon-900)]">
-                Approval requests
-              </h2>
-              <p className="text-sm text-slate-500">
-                Submissions that need a decision this week.
-              </p>
-            </div>
-          </div>
-          <div className="mt-4">
-            {loading ? (
-              <p className="text-sm text-slate-500">Loading approvals...</p>
-            ) : error ? (
-              <p className="text-sm text-red-600">
-                Failed to load approvals: {error}
-              </p>
-            ) : (
-              <DataTable columns={approvalColumns} rows={approvalRows} />
-            )}
-          </div>
-        </div>
-      </section>
+
 
       {/* Registry tables with dynamic, non-predefined active tabs */}
       <div className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm">
@@ -768,38 +747,35 @@ export default function ResearchGuideDashboard() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Area of Expertise</label>
-                  <input
-                    type="text"
-                    value={profileExpertise}
-                    onChange={(e) => setProfileExpertise(e.target.value)}
-                    placeholder="e.g. Data Analytics"
-                    className="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-white px-3.5 py-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#9B0302]"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Guided Scholars Count</label>
-                  <input
-                    type="text"
-                    value={profileGuidedScholars}
-                    onChange={(e) => setProfileGuidedScholars(e.target.value)}
-                    placeholder="e.g. 5"
-                    className="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-white px-3.5 py-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#9B0302]"
-                  />
-                </div>
-              </div>
+
 
               <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Photo URL</label>
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Photo URL (Optional)</label>
                 <input
                   type="text"
                   value={profileAvatar}
-                  onChange={(e) => setProfileAvatar(e.target.value)}
-                  placeholder="Leave blank to use initials avatar"
+                  onChange={(e) => setProfileAvatar(transformGoogleDriveLink(e.target.value))}
+                  placeholder="You can also click your avatar directly to upload a file"
                   className="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-white px-3.5 py-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#9B0302]"
                 />
+              </div>
+
+              <div className="pt-4 border-t border-[color:var(--border)] space-y-3">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Security Settings</label>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => router.push(`/${user?.role || "research-guide"}/profile/change-password`)}
+                    className="px-4 py-2 rounded-xl border border-[color:var(--border)] bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 transition"
+                  >
+                    Change Password
+                  </button>
+                  <button
+                    onClick={handleDeleteAccount}
+                    className="px-4 py-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-semibold transition"
+                  >
+                    Delete Account
+                  </button>
+                </div>
               </div>
             </div>
 
