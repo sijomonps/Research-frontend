@@ -127,22 +127,28 @@ export default function AdminResearchCentersPage() {
       setSaveError(null);
       setSaveSuccess(null);
 
-      if (!formState.name.trim() || !formState.code.trim() || !formState.department) {
-        setSaveError("Name, Code and Department are required.");
+      if (!formState.name.trim()) {
+        setSaveError("Research Center Name is required.");
         setSaving(false);
         return;
       }
 
+      const derivedCode = formState.name
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")
+        .substring(0, 10) + Math.floor(100 + Math.random() * 900);
+
       await apiPostJson("/research-centers", {
         name: formState.name.trim(),
-        code: formState.code.trim().toUpperCase(),
-        department: formState.department,
-        description: formState.description.trim() || undefined,
-        officeLocation: formState.officeLocation.trim() || undefined,
-        contactEmail: formState.contactEmail.trim() || undefined,
-        contactPhone: formState.contactPhone.trim() || undefined,
+        code: derivedCode,
+        department: formState.name.trim(),
+        description: "",
+        officeLocation: "",
+        contactEmail: undefined,
+        contactPhone: "",
         coordinatorId: formState.coordinatorId || undefined,
-        status: formState.status,
+        status: "Active",
       });
 
       setSaveSuccess("Research Center created successfully.");
@@ -190,20 +196,20 @@ export default function AdminResearchCentersPage() {
       setSaveError(null);
       setSaveSuccess(null);
 
-      if (!editFormState.name.trim() || !editFormState.code.trim() || !editFormState.department) {
-        setSaveError("Name, Code and Department are required.");
+      if (!editFormState.name.trim()) {
+        setSaveError("Research Center Name is required.");
         setSaving(false);
         return;
       }
 
       await apiPatchJson(`/research-centers/${editingCenter._id}`, {
         name: editFormState.name.trim(),
-        code: editFormState.code.trim().toUpperCase(),
-        department: editFormState.department,
-        description: editFormState.description.trim() || undefined,
-        officeLocation: editFormState.officeLocation.trim() || undefined,
-        contactEmail: editFormState.contactEmail.trim() || undefined,
-        contactPhone: editFormState.contactPhone.trim() || undefined,
+        code: editingCenter.code,
+        department: editFormState.name.trim(),
+        description: "",
+        officeLocation: "",
+        contactEmail: undefined,
+        contactPhone: "",
         coordinatorId: editFormState.coordinatorId || undefined,
         status: editFormState.status,
       });
@@ -249,7 +255,6 @@ export default function AdminResearchCentersPage() {
 
   const columns = [
     { key: "name", label: "Centre Name" },
-    { key: "department", label: "Department" },
     { key: "facultyCount", label: "Faculty Count" },
     { key: "guideCount", label: "Guide Count" },
     { key: "scholarCount", label: "Scholar Count" },
@@ -285,7 +290,6 @@ export default function AdminResearchCentersPage() {
       return {
         id: center._id,
         name: center.name,
-        department: center.department,
         facultyCount: centerFaculty.length,
         guideCount: centerGuides.length,
         scholarCount: centerScholars.length,
@@ -380,7 +384,7 @@ export default function AdminResearchCentersPage() {
         {/* Create Modal / Form Overlay */}
         {showForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
-            <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-scale-up max-h-[90vh] overflow-y-auto">
+            <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-scale-up">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="font-display text-base font-bold text-[color:var(--maroon-900)]">
                   Add Research Center
@@ -406,127 +410,24 @@ export default function AdminResearchCentersPage() {
                     placeholder="e.g. MCA Research Center"
                   />
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-code">
-                      Center Code
-                    </label>
-                    <input
-                      id="create-code"
-                      className={inputClass}
-                      value={formState.code}
-                      onChange={(e) => handleFormChange("code", e.target.value)}
-                      placeholder="e.g. MCA"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-dept">
-                      Department
-                    </label>
-                    <select
-                      id="create-dept"
-                      className={inputClass}
-                      value={formState.department}
-                      onChange={(e) => handleFormChange("department", e.target.value)}
-                    >
-                      <option value="">Select Department</option>
-                      {departments.map((d) => (
-                        <option key={d._id} value={d.name}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
 
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-description">
-                    Description
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-coordinator">
+                    Coordinator (Optional)
                   </label>
-                  <textarea
-                    id="create-description"
-                    className={`${inputClass} h-20 resize-none`}
-                    value={formState.description}
-                    onChange={(e) => handleFormChange("description", e.target.value)}
-                    placeholder="Center purpose, focus area, etc."
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-office">
-                    Office Location
-                  </label>
-                  <input
-                    id="create-office"
+                  <select
+                    id="create-coordinator"
                     className={inputClass}
-                    value={formState.officeLocation}
-                    onChange={(e) => handleFormChange("officeLocation", e.target.value)}
-                    placeholder="e.g. Room 403, Block B"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-email">
-                      Contact Email
-                    </label>
-                    <input
-                      id="create-email"
-                      type="email"
-                      className={inputClass}
-                      value={formState.contactEmail}
-                      onChange={(e) => handleFormChange("contactEmail", e.target.value)}
-                      placeholder="e.g. mca@univ.edu"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-phone">
-                      Contact Phone
-                    </label>
-                    <input
-                      id="create-phone"
-                      className={inputClass}
-                      value={formState.contactPhone}
-                      onChange={(e) => handleFormChange("contactPhone", e.target.value)}
-                      placeholder="e.g. +91 9988776655"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-coordinator">
-                      Coordinator
-                    </label>
-                    <select
-                      id="create-coordinator"
-                      className={inputClass}
-                      value={formState.coordinatorId}
-                      onChange={(e) => handleFormChange("coordinatorId", e.target.value)}
-                    >
-                      <option value="">Unassigned</option>
-                      {coordinators.map((c) => (
-                        <option key={c._id} value={c._id}>
-                          {c.name} ({c.email})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="create-status">
-                      Status
-                    </label>
-                    <select
-                      id="create-status"
-                      className={inputClass}
-                      value={formState.status}
-                      onChange={(e) => handleFormChange("status", e.target.value)}
-                    >
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                  </div>
+                    value={formState.coordinatorId}
+                    onChange={(e) => handleFormChange("coordinatorId", e.target.value)}
+                  >
+                    <option value="">Unassigned</option>
+                    {coordinators.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.name} ({c.email})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -556,7 +457,7 @@ export default function AdminResearchCentersPage() {
         {/* Edit Modal / Form Overlay */}
         {editingCenter && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
-            <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-scale-up max-h-[90vh] overflow-y-auto">
+            <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-scale-up">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="font-display text-base font-bold text-[color:var(--maroon-900)]">
                   Edit Research Center
@@ -582,127 +483,24 @@ export default function AdminResearchCentersPage() {
                     placeholder="Research Center Name"
                   />
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-code">
-                      Center Code
-                    </label>
-                    <input
-                      id="edit-code"
-                      className={inputClass}
-                      value={editFormState.code}
-                      onChange={(e) => handleEditFormChange("code", e.target.value)}
-                      placeholder="Center Code"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-dept">
-                      Department
-                    </label>
-                    <select
-                      id="edit-dept"
-                      className={inputClass}
-                      value={editFormState.department}
-                      onChange={(e) => handleEditFormChange("department", e.target.value)}
-                    >
-                      <option value="">Select Department</option>
-                      {departments.map((d) => (
-                        <option key={d._id} value={d.name}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
 
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-description">
-                    Description
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-coordinator">
+                    Coordinator
                   </label>
-                  <textarea
-                    id="edit-description"
-                    className={`${inputClass} h-20 resize-none`}
-                    value={editFormState.description}
-                    onChange={(e) => handleEditFormChange("description", e.target.value)}
-                    placeholder="Center description"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-office">
-                    Office Location
-                  </label>
-                  <input
-                    id="edit-office"
+                  <select
+                    id="edit-coordinator"
                     className={inputClass}
-                    value={editFormState.officeLocation}
-                    onChange={(e) => handleEditFormChange("officeLocation", e.target.value)}
-                    placeholder="Office Location"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-email">
-                      Contact Email
-                    </label>
-                    <input
-                      id="edit-email"
-                      type="email"
-                      className={inputClass}
-                      value={editFormState.contactEmail}
-                      onChange={(e) => handleEditFormChange("contactEmail", e.target.value)}
-                      placeholder="Contact Email"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-phone">
-                      Contact Phone
-                    </label>
-                    <input
-                      id="edit-phone"
-                      className={inputClass}
-                      value={editFormState.contactPhone}
-                      onChange={(e) => handleEditFormChange("contactPhone", e.target.value)}
-                      placeholder="Contact Phone"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-coordinator">
-                      Coordinator
-                    </label>
-                    <select
-                      id="edit-coordinator"
-                      className={inputClass}
-                      value={editFormState.coordinatorId}
-                      onChange={(e) => handleEditFormChange("coordinatorId", e.target.value)}
-                    >
-                      <option value="">Unassigned</option>
-                      {coordinators.map((c) => (
-                        <option key={c._id} value={c._id}>
-                          {c.name} ({c.email})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="edit-status">
-                      Status
-                    </label>
-                    <select
-                      id="edit-status"
-                      className={inputClass}
-                      value={editFormState.status}
-                      onChange={(e) => handleEditFormChange("status", e.target.value)}
-                    >
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                  </div>
+                    value={editFormState.coordinatorId}
+                    onChange={(e) => handleEditFormChange("coordinatorId", e.target.value)}
+                  >
+                    <option value="">Unassigned</option>
+                    {coordinators.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.name} ({c.email})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

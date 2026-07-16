@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
 import { DataTable } from "@/components/Table";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -50,7 +50,6 @@ const columns = [
   { key: "email", label: "Email" },
   { key: "roles", label: "Roles" },
   { key: "researchCenter", label: "Research Center" },
-  { key: "guide", label: "Guide" },
   { key: "status", label: "Status" },
   { key: "action", label: "Action", align: "right" as const },
 ];
@@ -87,6 +86,8 @@ export default function AdminUsersPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("All");
   const [formState, setFormState] = useState({
     name: "",
     email: "",
@@ -95,6 +96,42 @@ export default function AdminUsersPage() {
     researchCenterId: "",
     guideId: "",
   });
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((u) => {
+      // Search filter
+      if (search.trim()) {
+        const query = search.toLowerCase();
+        const matchesName = u.name?.toLowerCase().includes(query);
+        const matchesEmail = u.email?.toLowerCase().includes(query);
+        if (!matchesName && !matchesEmail) return false;
+      }
+      
+      // Role filter
+      if (roleFilter === "All") return true;
+      if (roleFilter === "scholar") {
+        return u.role === "scholar" || u.roles?.includes("scholar");
+      }
+      if (roleFilter === "faculty") {
+        return u.role === "faculty" || u.roles?.includes("faculty");
+      }
+      if (roleFilter === "guide") {
+        return (
+          u.role === "research_guide" ||
+          u.roles?.includes("research_guide") ||
+          u.permissions?.includes("research_guide")
+        );
+      }
+      if (roleFilter === "coordinator") {
+        return (
+          u.role === "coordinator" ||
+          u.roles?.includes("coordinator") ||
+          u.permissions?.includes("coordinator")
+        );
+      }
+      return true;
+    });
+  }, [users, roleFilter, search]);
 
   const loadUsers = useCallback(async () => {
     const response = await apiGet<ApiListResponse<User>>("/users");
@@ -262,7 +299,7 @@ export default function AdminUsersPage() {
 
   const rows = useMemo(
     () =>
-      users.map((user) => {
+      filteredUsers.map((user) => {
         const avatarUrl = user.avatar || user.preferences?.scholar_avatar || user.preferences?.faculty_avatar || user.preferences?.research_guide_avatar || user.preferences?.coordinator_avatar;
         return {
         id: user._id,
@@ -277,11 +314,18 @@ export default function AdminUsersPage() {
         ),
         name: user.name,
         email: user.email,
-        roles: (user.roles ?? (user.role ? [user.role] : []))
-          .map((role) => roleLabels[role] ?? role)
-          .join(", ") || "N/A",
+        roles: (
+          <div className="flex flex-col gap-0.5">
+            {(user.roles ?? (user.role ? [user.role] : []))
+              .map((role) => roleLabels[role] ?? role)
+              .map((label, idx) => (
+                <span key={idx} className="block whitespace-nowrap text-xs text-slate-600">
+                  {label}
+                </span>
+              ))}
+          </div>
+        ),
         researchCenter: user.researchCenter?.name ?? "N/A",
-        guide: user.guide?.name ?? "N/A",
         department: user.department || "N/A",
         status: <StatusBadge status={user.status ?? "Active"} />,
         action: (
@@ -314,7 +358,7 @@ export default function AdminUsersPage() {
         )
       };
     }),
-    [deletingUserId, approvingUserId, handleDeleteUser, users]
+    [deletingUserId, approvingUserId, handleDeleteUser, filteredUsers]
   );
 
   return (
@@ -490,6 +534,28 @@ export default function AdminUsersPage() {
             </div>
           </div>
         ) : null}
+        <div className="mt-4 flex flex-wrap gap-3">
+          <label className="flex flex-1 items-center gap-2 rounded-full border border-[color:var(--border)] bg-white px-4 py-2 text-xs text-slate-500">
+            <Search className="h-4 w-4" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search users..."
+              className="w-full bg-transparent text-slate-700 outline-none"
+            />
+          </label>
+          <select
+            className="rounded-full border border-[color:var(--border)] bg-white px-4 py-2 text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[#9B0302]/20 focus:border-[#9B0302]"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
+            <option value="All">All Roles</option>
+            <option value="scholar">Scholar</option>
+            <option value="faculty">Faculty Member</option>
+            <option value="guide">Research Guide</option>
+            <option value="coordinator">Research Center Coordinator</option>
+          </select>
+        </div>
         <div className="mt-4">
           {loading ? (
             <p className="text-sm text-slate-500">Loading users...</p>

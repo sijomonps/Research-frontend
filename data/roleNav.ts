@@ -44,10 +44,8 @@ export const researchGuideNav: NavItem[] = [
 export const adminNav: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/admin" },
   { label: "Users", icon: Users, href: "/admin/users" },
-  { label: "Coordinators", icon: User, href: "/admin/coordinators" },
   { label: "Research Centers", icon: Building2, href: "/admin/research-centers" },
   { label: "Submissions", icon: FileText, href: "/admin/submissions" },
-  { label: "Approvals", icon: ClipboardCheck, href: "/admin/approvals" },
   { label: "Scholar Portfolios", icon: Award, href: "/admin/portfolios" },
   { label: "Overall Leaves", icon: Calendar, href: "/admin/leaves" },
   { label: "Reports", icon: NotebookText, href: "/admin/reports" },

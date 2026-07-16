@@ -41,6 +41,7 @@ const formatDate = (value?: string) => {
 export default function AdminSubmissionsPage() {
   const { user } = useAuth();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [statusFilter, setStatusFilter] = useState("All");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,9 +72,16 @@ export default function AdminSubmissionsPage() {
     };
   }, []);
 
+  const filteredSubmissions = useMemo(() => {
+    if (statusFilter === "All") return submissions;
+    return submissions.filter(
+      (s) => s.status?.toLowerCase() === statusFilter.toLowerCase()
+    );
+  }, [submissions, statusFilter]);
+
   const rows = useMemo(
     () =>
-      submissions.map((submission) => ({
+      filteredSubmissions.map((submission) => ({
         id: submission._id,
         title: submission.title,
         author: submission.scholar?.name ?? "Unknown",
@@ -106,7 +114,7 @@ export default function AdminSubmissionsPage() {
           </div>
         ),
       })),
-    [submissions]
+    [filteredSubmissions, submissions]
   );
 
   return (
@@ -127,11 +135,15 @@ export default function AdminSubmissionsPage() {
               Review all submissions across the institution.
             </p>
           </div>
-          <select className="rounded-full border border-[color:var(--border)] bg-white px-4 py-2 text-xs font-semibold text-slate-600">
-            <option>All Status</option>
-            <option>Pending</option>
-            <option>Approved</option>
-            <option>Rejected</option>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-full border border-[color:var(--border)] bg-white px-4 py-2 text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[#9B0302]/20 focus:border-[#9B0302]"
+          >
+            <option value="All">All Status</option>
+            <option value="Pending">Pending</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
           </select>
         </div>
         <div className="mt-4">

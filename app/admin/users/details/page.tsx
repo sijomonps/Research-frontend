@@ -16,6 +16,7 @@ type User = {
   email: string;
   role?: string;
   roles?: string[];
+  permissions?: string[];
   department?: string;
   status?: string;
   phone?: string;
@@ -88,10 +89,12 @@ function AdminUserDetailsContent() {
     phone: "",
     status: "Active",
     password: "",
+    permissions: [] as string[],
   });
 
   useEffect(() => {
     if (user) {
+      const derivedPerms = user.permissions || user.roles?.filter((r) => r === "research_guide" || r === "coordinator") || [];
       setEditForm({
         name: user.name || "",
         email: user.email || "",
@@ -100,9 +103,12 @@ function AdminUserDetailsContent() {
         phone: user.phone || "",
         status: user.status || "Active",
         password: "",
+        permissions: derivedPerms,
       });
     }
   }, [user, isEditing]);
+
+  const isFacultyType = user?.role === "faculty" || user?.role === "research_guide" || user?.role === "coordinator";
 
   const handleSave = async () => {
     try {
@@ -115,7 +121,7 @@ function AdminUserDetailsContent() {
         status: editForm.status,
       };
 
-      if (user?.role === "faculty") {
+      if (isFacultyType) {
         payload.researchCenterId = editForm.researchCenterId || null;
         const matched = researchCenters.find((c) => c._id === editForm.researchCenterId);
         if (matched) {
@@ -123,6 +129,7 @@ function AdminUserDetailsContent() {
         } else {
           payload.department = "";
         }
+        payload.permissions = editForm.permissions;
       } else {
         payload.department = editForm.department;
       }
@@ -177,22 +184,55 @@ function AdminUserDetailsContent() {
                     <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Email</label>
                     <input className="mt-1 w-full rounded-xl border border-[color:var(--border)] px-3 py-2" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
                   </div>
-                  {user.role === "faculty" ? (
-                    <div>
-                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Research Center</label>
-                      <select
-                        className="mt-1 w-full rounded-xl border border-[color:var(--border)] px-3 py-2 bg-white"
-                        value={editForm.researchCenterId}
-                        onChange={(e) => setEditForm({ ...editForm, researchCenterId: e.target.value })}
-                      >
-                        <option value="">Select Research Center</option>
-                        {researchCenters.map((c) => (
-                          <option key={c._id} value={c._id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  {isFacultyType ? (
+                    <>
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Research Center</label>
+                        <select
+                          className="mt-1 w-full rounded-xl border border-[color:var(--border)] px-3 py-2 bg-white"
+                          value={editForm.researchCenterId}
+                          onChange={(e) => setEditForm({ ...editForm, researchCenterId: e.target.value })}
+                        >
+                          <option value="">Select Research Center</option>
+                          {researchCenters.map((c) => (
+                            <option key={c._id} value={c._id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Faculty Permissions (Optional)</label>
+                        <div className="mt-2 flex flex-wrap gap-4 rounded-xl border border-[color:var(--border)] bg-white p-3 text-xs text-slate-600 shadow-sm">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={editForm.permissions.includes("research_guide")}
+                              onChange={(e) => {
+                                const nextPerms = e.target.checked
+                                  ? Array.from(new Set([...editForm.permissions, "research_guide"]))
+                                  : editForm.permissions.filter((p) => p !== "research_guide");
+                                setEditForm({ ...editForm, permissions: nextPerms });
+                              }}
+                            />
+                            <span>Research Guide</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={editForm.permissions.includes("coordinator")}
+                              onChange={(e) => {
+                                const nextPerms = e.target.checked
+                                  ? Array.from(new Set([...editForm.permissions, "coordinator"]))
+                                  : editForm.permissions.filter((p) => p !== "coordinator");
+                                setEditForm({ ...editForm, permissions: nextPerms });
+                              }}
+                            />
+                            <span>Research Center Coordinator</span>
+                          </label>
+                        </div>
+                      </div>
+                    </>
                   ) : (
                     <div>
                       <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Department/Department Name</label>
