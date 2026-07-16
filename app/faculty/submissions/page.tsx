@@ -44,6 +44,7 @@ export default function FacultySubmissionsPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [scholars, setScholars] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
+  const [statusFilter, setStatusFilter] = useState("All");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -129,9 +130,16 @@ export default function FacultySubmissionsPage() {
     }
   };
 
+  const filteredSubmissions = useMemo(() => {
+    if (statusFilter === "All") return submissions;
+    return submissions.filter(
+      (s) => s.status?.toLowerCase() === statusFilter.toLowerCase()
+    );
+  }, [submissions, statusFilter]);
+
   const rows = useMemo(
     () =>
-      submissions.map((submission) => ({
+      filteredSubmissions.map((submission) => ({
         id: submission._id,
         title: submission.title,
         scholar: submission.scholar?.name ?? "Unknown",
@@ -141,13 +149,13 @@ export default function FacultySubmissionsPage() {
         action: (
           <Link
             href={`/faculty/submissions/details/${submission._id}`}
-            className="rounded-full border border-[color:var(--border)] px-3 py-1 text-xs font-semibold text-[color:var(--maroon-700)]"
+            className="rounded-full border border-[color:var(--border)] px-3 py-1 text-xs font-semibold text-[color:var(--maroon-700)] hover:bg-slate-50 transition-colors"
           >
             View
           </Link>
         ),
       })),
-    [submissions]
+    [filteredSubmissions]
   );
 
   return (
@@ -165,15 +173,19 @@ export default function FacultySubmissionsPage() {
               Submissions
             </h2>
             <p className="text-sm text-slate-500">
-              Review scholar submissions across Research Centers.
+              Review and manage scholar submissions.
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <select className="rounded-full border border-[color:var(--border)] bg-white px-4 py-2 text-xs font-semibold text-slate-600">
-              <option>All Status</option>
-              <option>Pending</option>
-              <option>Approved</option>
-              <option>Rejected</option>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded-full border border-[color:var(--border)] bg-white px-4 py-2 text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[#9B0302]/20 focus:border-[#9B0302]"
+            >
+              <option value="All">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
             </select>
             <button
               type="button"

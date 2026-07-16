@@ -6,13 +6,9 @@ import { useAuth } from "./AuthProvider";
 import {
   LayoutDashboard,
   FileText,
-  ClipboardCheck,
   Coins,
   Users,
-  Award,
-  Calendar,
   NotebookText,
-  User as UserIcon,
 } from "lucide-react";
 
 type PageLayoutProps = {
@@ -59,21 +55,8 @@ export function PageLayout({
     }
 
     dynamicNav.push({ label: "Submissions", icon: FileText, href: "/faculty/submissions" });
-    dynamicNav.push({ label: "Approvals", icon: ClipboardCheck, href: "/faculty/approvals" });
-
-    if (isGuide) {
-      dynamicNav.push({ label: "Portfolio Reviews", icon: Award, href: "/faculty/portfolio-reviews" });
-      dynamicNav.push({ label: "Leave Reviews", icon: Calendar, href: "/faculty/leave-reviews" });
-    }
-
-    if (isCoordinator) {
-      dynamicNav.push({ label: "Scholar Portfolios", icon: Award, href: "/faculty/portfolios" });
-      dynamicNav.push({ label: "Research Center Leaves", icon: Calendar, href: "/faculty/leaves" });
-    }
-
     dynamicNav.push({ label: "Reports", icon: NotebookText, href: "/faculty/reports" });
     dynamicNav.push({ label: "Incentives", icon: Coins, href: "/faculty/incentives" });
-    dynamicNav.push({ label: "Profile", icon: UserIcon, href: "/faculty/profile" });
 
     resolvedNav = dynamicNav;
   }

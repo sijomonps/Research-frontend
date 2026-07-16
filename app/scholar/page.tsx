@@ -170,7 +170,7 @@ export default function ScholarDashboard() {
 
   // Load metrics stats filtered by scholarId
   useEffect(() => {
-    if (!user?._id) return;
+    if (!user?._id || user.requirePasswordChange) return;
     let isMounted = true;
     const loadMetrics = async () => {
       try {
@@ -441,6 +441,16 @@ export default function ScholarDashboard() {
   // Active tab setup
   const activeTabConfig = tabsList.find(t => t.id === selectedTab);
   const activeTabRows = customTabsData[selectedTab] || [];
+
+  if (user?.requirePasswordChange) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <p className="text-sm font-medium text-slate-500">Redirecting to password update page...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <PageLayout

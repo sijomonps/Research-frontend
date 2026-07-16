@@ -105,12 +105,11 @@ export default function FacultyDashboard() {
   // New row form
   const [newRowValues, setNewRowValues] = useState<Record<string, string>>({});
 
-  // Initialize and load dynamic database states
   useEffect(() => {
     let isMounted = true;
 
     const loadData = async () => {
-      if (!user?._id) return;
+      if (!user?._id || user.requirePasswordChange) return;
       try {
         setLoading(true);
         setError(null);
@@ -521,6 +520,16 @@ export default function FacultyDashboard() {
   const activeTabConfig = tabsList.find(t => t.id === selectedTab);
   const activeTabRows = customTabsData[selectedTab] || [];
 
+  if (user?.requirePasswordChange) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <p className="text-sm font-medium text-slate-500">Redirecting to password update page...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <PageLayout
       title="Faculty Dashboard"
@@ -533,19 +542,6 @@ export default function FacultyDashboard() {
         <p className="text-sm text-red-600 my-4">Failed to load dashboard: {error}</p>
       ) : null}
 
-      {guideMetrics ? (
-        <div className="mb-6">
-          <h3 className="font-display text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider">Research Guide Modules</h3>
-          <DashboardCards items={guideMetrics} />
-        </div>
-      ) : null}
-
-      {coordinatorMetrics ? (
-        <div className="mb-6">
-          <h3 className="font-display text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider">Coordinator Modules</h3>
-          <DashboardCards items={coordinatorMetrics} />
-        </div>
-      ) : null}
 
       {/* Profile details card integrated inside dashboard */}
       <div className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-sm mb-6">

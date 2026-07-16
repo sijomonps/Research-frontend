@@ -25,7 +25,6 @@ export const scholarNav: NavItem[] = [
 export const facultyNav: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/faculty" },
   { label: "Submissions", icon: FileText, href: "/faculty/submissions" },
-  { label: "Approvals", icon: ClipboardCheck, href: "/faculty/approvals" },
   { label: "Incentives", icon: Coins, href: "/faculty/incentives" },
 ];
 
