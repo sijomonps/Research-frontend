@@ -16,6 +16,7 @@ type User = {
   email: string;
   role: string;
   roles?: string[];
+  permissions?: string[];
   department?: string;
   status?: string;
   avatar?: string;
