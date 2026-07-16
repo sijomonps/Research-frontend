@@ -15,10 +15,9 @@ import {
 
 export const scholarNav: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/scholar" },
-  { label: "My Submissions", icon: FileText, href: "/scholar/submissions" },
+  { label: "My Submission", icon: FileText, href: "/scholar/submissions" },
   { label: "My Portfolio", icon: Award, href: "/scholar/portfolio" },
   { label: "Leave Applications", icon: Calendar, href: "/scholar/leaves" },
-  { label: "My Approvals", icon: ClipboardCheck, href: "/scholar/approvals" },
   { label: "Activity Report", icon: NotebookText, href: "/scholar/report" },
 ];
 

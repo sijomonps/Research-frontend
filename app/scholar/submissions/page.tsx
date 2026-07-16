@@ -40,6 +40,7 @@ const formatDate = (value?: string) => {
 export default function ScholarSubmissionsPage() {
   const { user } = useAuth();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [statusFilter, setStatusFilter] = useState("All");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,9 +91,16 @@ export default function ScholarSubmissionsPage() {
     };
   }, [user?._id]);
 
+  const filteredSubmissions = useMemo(() => {
+    if (statusFilter === "All") return submissions;
+    return submissions.filter(
+      (s) => s.status?.toLowerCase() === statusFilter.toLowerCase()
+    );
+  }, [submissions, statusFilter]);
+
   const rows = useMemo(
     () =>
-      submissions.map((submission) => ({
+      filteredSubmissions.map((submission) => ({
         id: submission._id,
         title: (
           <Link
@@ -123,34 +131,46 @@ export default function ScholarSubmissionsPage() {
           </div>
         ),
       })),
-    [submissions]
+    [filteredSubmissions]
   );
 
   return (
     <PageLayout
-      title="My Submissions"
+      title="My Submission"
       userName={user?.name || "Scholar"}
       roleLabel="Scholar"
       navItems={scholarNav}
-      activeItem="My Submissions"
+      activeItem="My Submission"
     >
       <section className="rounded-2xl border border-[color:var(--border)] bg-white p-6 shadow-[0_14px_28px_rgba(91,11,22,0.08)]">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[color:var(--border)] pb-4">
           <div>
             <h2 className="font-display text-lg text-[color:var(--maroon-900)]">
-              My submissions
+              My Submission
             </h2>
             <p className="text-sm text-slate-500">
               Track the status of your submitted research papers.
             </p>
           </div>
-          <Link
-            href="/scholar/submissions/new"
-            className="inline-flex items-center gap-2 rounded-full bg-[color:var(--maroon-800)] px-4 py-2 text-xs font-semibold text-white shadow-sm"
-          >
-            <Plus className="h-4 w-4" />
-            New Submission
-          </Link>
+          <div className="flex items-center gap-3">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded-full border border-[color:var(--border)] bg-white px-4 py-2 text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-[#9B0302]/20 focus:border-[#9B0302]"
+            >
+              <option value="All">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+            <Link
+              href="/scholar/submissions/new"
+              className="inline-flex items-center gap-2 rounded-full bg-[color:var(--maroon-800)] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[color:var(--maroon-900)] transition"
+            >
+              <Plus className="h-4 w-4" />
+              New Submission
+            </Link>
+          </div>
         </div>
         <div className="mt-4">
           {loading ? (
