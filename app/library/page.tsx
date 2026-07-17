@@ -19,6 +19,7 @@ import {
   X,
   ExternalLink,
   Info,
+  Image as ImageIcon,
 } from "lucide-react";
 import { DashboardCards } from "@/components/DashboardCards";
 
@@ -27,6 +28,7 @@ export default function LibraryDashboard() {
   const [incentives, setIncentives] = useState<IncentiveApplication[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<"Pending" | "Verified" | "Rejected">("Pending");
   const [selectedApp, setSelectedApp] = useState<IncentiveApplication | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
 
   const fetchIncentives = async () => {
     try {
@@ -76,6 +78,7 @@ export default function LibraryDashboard() {
   });
 
   return (
+    <>
     <PageLayout
       title="Library Verification Portal"
       userName={user?.name || "Librarian"}
@@ -158,10 +161,21 @@ export default function LibraryDashboard() {
                     <td className="p-4 text-sm font-semibold text-slate-800">
                       ₹{inc.amountRequested.toLocaleString()}
                     </td>
-                    <td className="p-4 text-sm text-slate-500 max-w-xs truncate">
-                      {inc.category === "Publication" && inc.publicationTitle}
-                      {inc.category === "Patent" && inc.patentTitle}
-                      {inc.category === "Registration Fee" && inc.eventName}
+                    <td className="p-4 text-sm text-slate-500 max-w-xs">
+                      <div className="truncate">
+                        {inc.category === "Publication" && inc.publicationTitle}
+                        {inc.category === "Patent" && inc.patentTitle}
+                        {inc.category === "Registration Fee" && inc.eventName}
+                      </div>
+                      {inc.proofImage && (
+                        <button
+                          onClick={() => setProofPreview(inc.proofImage || null)}
+                          className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-[#9B0302] hover:underline"
+                        >
+                          <ImageIcon className="w-3 h-3" />
+                          View Proof
+                        </button>
+                      )}
                     </td>
                     <td className="p-4 text-center">
                       <span
@@ -329,6 +343,27 @@ export default function LibraryDashboard() {
                   </p>
                 </div>
               </div>
+
+              {/* Proof Document */}
+              {selectedApp.proofImage && (
+                <div className="pt-3 border-t border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Supporting Proof Document</p>
+                  <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                    <img
+                      src={selectedApp.proofImage}
+                      alt="Incentive proof"
+                      className="w-full max-h-56 object-contain"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setProofPreview(selectedApp.proofImage || null)}
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#9B0302] hover:underline"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    View Full Size
+                  </button>
+                </div>
+              )}
             </div>
 
             {selectedApp.status === "Pending Library" && (
@@ -351,5 +386,28 @@ export default function LibraryDashboard() {
         </div>
       )}
     </PageLayout>
+
+      {/* Full-size Proof Preview */}
+      {proofPreview && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <div className="relative bg-white rounded-2xl max-w-2xl w-full p-4 shadow-2xl">
+            <button
+              onClick={() => setProofPreview(null)}
+              className="absolute top-3 right-3 p-1.5 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <p className="text-xs font-bold text-slate-500 uppercase mb-3">Proof Document</p>
+            <div className="flex justify-center items-center">
+              <img
+                src={proofPreview}
+                alt="Proof full view"
+                className="max-h-[75vh] object-contain rounded-lg"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

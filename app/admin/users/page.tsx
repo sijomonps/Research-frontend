@@ -118,15 +118,11 @@ export default function AdminUsersPage() {
       }
       if (roleFilter === "guide") {
         return (
-          u.role === "research_guide" ||
-          u.roles?.includes("research_guide") ||
           u.permissions?.includes("research_guide")
         );
       }
       if (roleFilter === "coordinator") {
         return (
-          u.role === "coordinator" ||
-          u.roles?.includes("coordinator") ||
           u.permissions?.includes("coordinator")
         );
       }

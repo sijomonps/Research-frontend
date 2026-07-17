@@ -123,15 +123,8 @@ export default function ScholarDashboard() {
     const userIdKey = user._id;
 
     // Load Unique ID
-    const savedId = user?.uniqueId || localStorage.getItem(`scholar_${userIdKey}_profile_unique_id`);
-    if (savedId) {
-      setUniqueId(savedId);
-      localStorage.setItem(`scholar_${userIdKey}_profile_unique_id`, savedId);
-    } else {
-      const generatedId = `MCKA-SCH-${user._id.slice(-4).toUpperCase()}`;
-      setUniqueId(generatedId);
-      localStorage.setItem(`scholar_${userIdKey}_profile_unique_id`, generatedId);
-    }
+    const savedId = user?.uniqueId || `MCKA-SCH-${user._id.slice(-4).toUpperCase()}`;
+    setUniqueId(savedId);
 
     // Load tabs config
     const prefTabs = user?.preferences?.scholar_custom_tabs_list;
@@ -224,8 +217,7 @@ export default function ScholarDashboard() {
       setProfileGuide(user.guide?.name || "");
       setProfileAvatar(user.preferences?.scholar_avatar || "");
       
-      const savedId = localStorage.getItem(`scholar_${user._id}_profile_unique_id`);
-      setProfileUniqueId(savedId || (user._id ? `MCKA-SCH-${user._id.slice(-4).toUpperCase()}` : ""));
+      setProfileUniqueId(user.uniqueId || (user._id ? `MCKA-SCH-${user._id.slice(-4).toUpperCase()}` : ""));
     }
   }, [user, showEditProfileModal]);
 
@@ -261,8 +253,6 @@ export default function ScholarDashboard() {
   const handleSaveProfile = async () => {
     if (!user?._id) return;
     try {
-      localStorage.setItem(`scholar_${user._id}_profile_unique_id`, profileUniqueId);
-
       // Save changes to local database via API
       const res: any = await apiPatchJson("/users/" + user._id, {
         name: profileName,
@@ -284,6 +274,7 @@ export default function ScholarDashboard() {
       setShowEditProfileModal(false);
     } catch (err) {
       console.error("Failed to save profile:", err);
+      alert("Failed to save profile changes.");
     }
   };
 

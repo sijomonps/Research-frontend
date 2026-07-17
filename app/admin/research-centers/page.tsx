@@ -105,11 +105,7 @@ export default function AdminResearchCentersPage() {
 
   const coordinators = useMemo(() => {
     return allUsers.filter((u) =>
-      u.role === "faculty" ||
-      u.role === "coordinator" ||
-      u.roles?.includes("faculty") ||
-      u.roles?.includes("coordinator") ||
-      u.permissions?.includes("coordinator")
+      u.role === "faculty" && u.permissions?.includes("coordinator")
     );
   }, [allUsers]);
 
@@ -276,7 +272,7 @@ export default function AdminResearchCentersPage() {
           const rc = u.researchCenter;
           const userCenterId = (rc && typeof rc === "object") ? rc._id : rc;
           return userCenterId === center._id &&
-            (u.role === "research_guide" || u.roles?.includes("research_guide") || u.permissions?.includes("research_guide"));
+            (u.role === "faculty" && u.permissions?.includes("research_guide"));
         }
       );
       const centerScholars = allUsers.filter(

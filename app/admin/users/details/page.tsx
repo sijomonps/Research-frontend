@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -34,13 +34,17 @@ const roleLabels: Record<string, string> = {
 
 function AdminUserDetailsContent() {
   const searchParams = useSearchParams();
-  const userId = useMemo(() => searchParams.get("id") ?? "", [searchParams]);
+  const userId = searchParams.get("id") ?? "";
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(Boolean(userId));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setError("Missing user id.");
+      setLoading(false);
+      return;
+    }
     let isMounted = true;
 
     const load = async () => {
@@ -94,7 +98,7 @@ function AdminUserDetailsContent() {
 
   useEffect(() => {
     if (user) {
-      const derivedPerms = user.permissions || user.roles?.filter((r) => r === "research_guide" || r === "coordinator") || [];
+      const derivedPerms = user.permissions || [];
       setEditForm({
         name: user.name || "",
         email: user.email || "",
@@ -108,7 +112,7 @@ function AdminUserDetailsContent() {
     }
   }, [user, isEditing]);
 
-  const isFacultyType = user?.role === "faculty" || user?.role === "research_guide" || user?.role === "coordinator";
+  const isFacultyType = user?.role === "faculty";
 
   const handleSave = async () => {
     try {

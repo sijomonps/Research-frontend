@@ -159,7 +159,7 @@ export default function AdminResearchCenterDetailsPage() {
       const rc = u.researchCenter;
       const userCenterId = (rc && typeof rc === "object") ? rc._id : rc;
       return userCenterId === centerId &&
-        (u.role === "research_guide" || u.roles?.includes("research_guide") || u.permissions?.includes("research_guide"));
+        (u.role === "faculty" && u.permissions?.includes("research_guide"));
     });
   }, [allUsers, centerId]);
 
@@ -185,11 +185,7 @@ export default function AdminResearchCenterDetailsPage() {
   // Candidate dropdown lists for assigning
   const coordinators = useMemo(() => {
     return allUsers.filter((u) =>
-      u.role === "faculty" ||
-      u.role === "coordinator" ||
-      u.roles?.includes("faculty") ||
-      u.roles?.includes("coordinator") ||
-      u.permissions?.includes("coordinator")
+      u.role === "faculty" && u.permissions?.includes("coordinator")
     );
   }, [allUsers]);
 
@@ -205,8 +201,8 @@ export default function AdminResearchCenterDetailsPage() {
     return allUsers.filter((u) => {
       const rc = u.researchCenter;
       const userCenterId = (rc && typeof rc === "object") ? rc._id : rc;
-      const isGuide = u.roles?.includes("research_guide") || u.permissions?.includes("research_guide") || u.role === "research_guide";
-      return (u.role === "faculty" || u.roles?.includes("faculty")) && userCenterId === centerId && !isGuide;
+      const isGuide = u.permissions?.includes("research_guide");
+      return u.role === "faculty" && userCenterId === centerId && !isGuide;
     });
   }, [allUsers, centerId]);
 
@@ -270,15 +266,14 @@ export default function AdminResearchCenterDetailsPage() {
       return;
     }
 
-    const currentRoles = guide.roles && guide.roles.length > 0 ? guide.roles : [guide.role || "faculty"];
-    const nextRoles = Array.from(new Set([...currentRoles, "research_guide"]));
+    const nextPermissions = Array.from(new Set([...(guide.permissions || []), "research_guide"]));
 
     try {
       setSaving(true);
       setSaveMessage(null);
       await apiPatchJson(`/users/${guide._id}`, {
         researchCenterId: centerId,
-        roles: nextRoles,
+        permissions: nextPermissions,
       });
       await loadData();
       setSaveMessage("Research guide permissions assigned successfully.");

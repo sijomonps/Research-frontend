@@ -52,51 +52,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const role = resolvedUser.role || resolvedUser.roles?.[0] || "scholar";
     const userIdKey = resolvedUser._id;
 
-    if (userIdKey) {
-      // Restore extended profile fields
-      if (resolvedUser.name) localStorage.setItem(`${role}_${userIdKey}_profile_name`, resolvedUser.name);
-      if (resolvedUser.email) localStorage.setItem(`${role}_${userIdKey}_profile_email`, resolvedUser.email);
-      if (resolvedUser.department) localStorage.setItem(`${role}_${userIdKey}_profile_dept`, resolvedUser.department);
-      
-      if (resolvedUser.designation) localStorage.setItem(`${role}_${userIdKey}_profile_designation`, resolvedUser.designation);
-      if (resolvedUser.uniqueId) localStorage.setItem(`${role}_${userIdKey}_profile_unique_id`, resolvedUser.uniqueId);
-      if (resolvedUser.avatar) localStorage.setItem(`${role}_${userIdKey}_profile_avatar`, resolvedUser.avatar);
-      if (resolvedUser.academicYear) {
-        localStorage.setItem(`${role}_${userIdKey}_profile_academic_year`, resolvedUser.academicYear);
-      }
-
+    if (userIdKey && resolvedUser.preferences) {
       // Restore preferences
-      if (resolvedUser.preferences) {
-        Object.entries(resolvedUser.preferences).forEach(([key, val]) => {
-          let finalKey = key;
-          if (key.startsWith(`${role}_`)) {
-            const suffix = key.slice(role.length + 1);
-            if (!suffix.startsWith(`${userIdKey}_`)) {
-              finalKey = `${role}_${userIdKey}_${suffix}`;
-            }
+      Object.entries(resolvedUser.preferences).forEach(([key, val]) => {
+        let finalKey = key;
+        if (key.startsWith(`${role}_`)) {
+          const suffix = key.slice(role.length + 1);
+          if (!suffix.startsWith(`${userIdKey}_`)) {
+            finalKey = `${role}_${userIdKey}_${suffix}`;
           }
-          localStorage.setItem(finalKey, typeof val === "string" ? val : JSON.stringify(val));
-        });
-      }
-    } else {
+        }
+        localStorage.setItem(finalKey, typeof val === "string" ? val : JSON.stringify(val));
+      });
+    } else if (resolvedUser.preferences) {
       // Fallback
-      if (resolvedUser.name) localStorage.setItem(`${role}_profile_name`, resolvedUser.name);
-      if (resolvedUser.email) localStorage.setItem(`${role}_profile_email`, resolvedUser.email);
-      if (resolvedUser.department) localStorage.setItem(`${role}_profile_dept`, resolvedUser.department);
-      
-      if (resolvedUser.designation) localStorage.setItem(`${role}_profile_designation`, resolvedUser.designation);
-      if (resolvedUser.uniqueId) localStorage.setItem(`${role}_profile_unique_id`, resolvedUser.uniqueId);
-      if (resolvedUser.avatar) localStorage.setItem(`${role}_profile_avatar`, resolvedUser.avatar);
-      if (resolvedUser.academicYear) {
-        localStorage.setItem(`${role}_profile_academic_year`, resolvedUser.academicYear);
-      }
-
-      // Restore preferences
-      if (resolvedUser.preferences) {
-        Object.entries(resolvedUser.preferences).forEach(([key, val]) => {
-          localStorage.setItem(key, typeof val === "string" ? val : JSON.stringify(val));
-        });
-      }
+      Object.entries(resolvedUser.preferences).forEach(([key, val]) => {
+        localStorage.setItem(key, typeof val === "string" ? val : JSON.stringify(val));
+      });
     }
   };
 
@@ -118,7 +90,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUser(null);
             setLoading(false);
           }
-          const isProtected = ["/admin", "/coordinator", "/faculty", "/research-guide", "/scholar", "/library"].some(
+          const isProtected = ["/admin", "/faculty", "/scholar", "/library"].some(
             (prefix) => pathname.startsWith(prefix)
           );
           if (isProtected) {
@@ -153,7 +125,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const role = resolvedUser.role || resolvedUser.roles?.[0];
             let changePasswordPath = "/";
             if (role === "admin") changePasswordPath = "/admin/settings";
-            else if (role === "coordinator" || role === "faculty" || role === "research_guide") changePasswordPath = "/faculty/profile/change-password";
+            else if (role === "faculty") changePasswordPath = "/faculty/profile/change-password";
             else if (role === "scholar") changePasswordPath = "/scholar/profile/change-password";
             else if (role === "library") changePasswordPath = "/library/profile/change-password";
 
@@ -167,7 +139,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (pathname === "/") {
             const role = resolvedUser.role || resolvedUser.roles?.[0];
             if (role === "admin") router.push("/admin");
-            else if (role === "coordinator" || role === "faculty" || role === "research_guide") router.push("/faculty");
+            else if (role === "faculty") router.push("/faculty");
             else if (role === "scholar") router.push("/scholar");
             else if (role === "library") router.push("/library");
           }
@@ -177,7 +149,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (typeof window !== "undefined") {
             localStorage.removeItem("token");
           }
-          const isProtected = ["/admin", "/coordinator", "/faculty", "/research-guide", "/scholar", "/library"].some(
+          const isProtected = ["/admin", "/faculty", "/scholar", "/library"].some(
             (prefix) => pathname.startsWith(prefix)
           );
           if (isProtected) {
@@ -210,7 +182,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           localStorage.removeItem("token");
         }
         
-        const isProtected = ["/admin", "/coordinator", "/faculty", "/research-guide", "/scholar", "/library"].some(
+          const isProtected = ["/admin", "/faculty", "/scholar", "/library"].some(
           (prefix) => pathname.startsWith(prefix)
         );
         if (isProtected) {
@@ -239,7 +211,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const role = userData.role || userData.roles?.[0];
       let changePasswordPath = "/";
       if (role === "admin") changePasswordPath = "/admin/settings";
-      else if (role === "coordinator" || role === "faculty" || role === "research_guide") changePasswordPath = "/faculty/profile/change-password";
+            else if (role === "faculty") changePasswordPath = "/faculty/profile/change-password";
       else if (role === "scholar") changePasswordPath = "/scholar/profile/change-password";
       else if (role === "library") changePasswordPath = "/library/profile/change-password";
 
@@ -249,7 +221,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const role = userData.role || userData.roles?.[0];
     if (role === "admin") router.push("/admin");
-    else if (role === "coordinator" || role === "faculty" || role === "research_guide") router.push("/faculty");
+    else if (role === "faculty") router.push("/faculty");
     else if (role === "scholar") router.push("/scholar");
     else if (role === "library") router.push("/library");
   };

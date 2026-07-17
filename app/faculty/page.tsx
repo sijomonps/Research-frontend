@@ -93,7 +93,6 @@ export default function FacultyDashboard() {
   const [profileUniqueId, setProfileUniqueId] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
   const [profileDept, setProfileDept] = useState("");
-  const [profileCenter, setProfileCenter] = useState("");
   const [profileAvatar, setProfileAvatar] = useState("");
   const [profileSpecialization, setProfileSpecialization] = useState("");
   const [profileExperience, setProfileExperience] = useState("");
@@ -114,8 +113,8 @@ export default function FacultyDashboard() {
         setLoading(true);
         setError(null);
 
-        const isGuide = user.roles?.includes("research_guide") || user.permissions?.includes("research_guide");
-        const isCoordinator = user.roles?.includes("coordinator") || user.permissions?.includes("coordinator");
+        const isGuide = user.permissions?.includes("research_guide");
+        const isCoordinator = user.permissions?.includes("coordinator");
 
         const promises: Promise<any>[] = [];
 
@@ -223,10 +222,11 @@ export default function FacultyDashboard() {
         setActiveTabs(parsedActive);
         if (parsedActive.length > 0) setSelectedTab(parsedActive[0]);
       } else {
-        const defaultActive = DEFAULT_FACULTY_TABS.map(t => t.id);
+        // New faculty accounts start with no tabs active — they enable via Configure Tabs
+        const defaultActive: string[] = [];
         localStorage.setItem(`faculty_${userIdKey}_active_tabs`, JSON.stringify(defaultActive));
         setActiveTabs(defaultActive);
-        setSelectedTab(defaultActive[0]);
+        setSelectedTab("");
       }
 
       if (savedData) {
@@ -236,16 +236,15 @@ export default function FacultyDashboard() {
         setCustomTabsData(DEFAULT_FACULTY_TABS_DATA);
       }
 
-      // Load Profile fields from database or localstorage
-      setProfileName(user?.name || localStorage.getItem(`faculty_${userIdKey}_profile_name`) || "");
-      setProfileDesignation(user?.designation || localStorage.getItem(`faculty_${userIdKey}_profile_designation`) || "");
-      setProfileUniqueId(user?.uniqueId || localStorage.getItem(`faculty_${userIdKey}_profile_unique_id`) || `MCKA-FAC-${user._id.slice(-4).toUpperCase()}`);
-      setProfileEmail(user?.email || localStorage.getItem(`faculty_${userIdKey}_profile_email`) || "");
-      setProfileDept(user?.department || localStorage.getItem(`faculty_${userIdKey}_profile_dept`) || "");
-      setProfileCenter(localStorage.getItem(`faculty_${userIdKey}_profile_center`) || "");
-      setProfileAvatar(user?.avatar || localStorage.getItem(`faculty_${userIdKey}_profile_avatar`) || "");
-      setProfileSpecialization(user?.preferences?.faculty_profile_specialization || localStorage.getItem(`faculty_${userIdKey}_profile_specialization`) || "");
-      setProfileExperience(user?.preferences?.faculty_profile_experience || localStorage.getItem(`faculty_${userIdKey}_profile_experience`) || "");
+      // Load Profile fields from user context
+      setProfileName(user?.name || "");
+      setProfileDesignation(user?.designation || "");
+      setProfileUniqueId(user?.uniqueId || `MCKA-FAC-${user._id.slice(-4).toUpperCase()}`);
+      setProfileEmail(user?.email || "");
+      setProfileDept(user?.department || "");
+      setProfileAvatar(user?.avatar || "");
+      setProfileSpecialization(user?.preferences?.faculty_profile_specialization || "");
+      setProfileExperience(user?.preferences?.faculty_profile_experience || "");
     }
 
     return () => {
@@ -288,42 +287,28 @@ export default function FacultyDashboard() {
       return;
     }
     if (!user?._id) return;
-    const userIdKey = user._id;
     
-    // Write profile data to localStorage
-    localStorage.setItem(`faculty_${userIdKey}_profile_name`, profileName);
-    localStorage.setItem(`faculty_${userIdKey}_profile_designation`, profileDesignation);
-    localStorage.setItem(`faculty_${userIdKey}_profile_unique_id`, profileUniqueId);
-    localStorage.setItem(`faculty_${userIdKey}_profile_email`, profileEmail);
-    localStorage.setItem(`faculty_${userIdKey}_profile_dept`, profileDept);
-    localStorage.setItem(`faculty_${userIdKey}_profile_center`, profileCenter);
-    localStorage.setItem(`faculty_${userIdKey}_profile_avatar`, profileAvatar);
-    localStorage.setItem(`faculty_${userIdKey}_profile_specialization`, profileSpecialization);
-    localStorage.setItem(`faculty_${userIdKey}_profile_experience`, profileExperience);
-
     // Patch global user context
-    if (user?._id) {
-      try {
-        const updatedUser = await apiPatchJson<UserType>(`/users/${user._id}`, {
-          name: profileName,
-          email: profileEmail,
-          department: profileDept,
-          designation: profileDesignation,
-          uniqueId: profileUniqueId,
-          avatar: transformGoogleDriveLink(profileAvatar),
-          preferences: {
-            ...(user.preferences || {}),
-            faculty_profile_specialization: profileSpecialization,
-            faculty_profile_experience: profileExperience
-          }
-        });
-        login("", updatedUser);
-      } catch (err) {
-        console.error("Local context synchronization failed:", err);
-      }
+    try {
+      const updatedUser = await apiPatchJson<UserType>(`/users/${user._id}`, {
+        name: profileName,
+        email: profileEmail,
+        department: profileDept,
+        designation: profileDesignation,
+        uniqueId: profileUniqueId,
+        avatar: transformGoogleDriveLink(profileAvatar),
+        preferences: {
+          ...(user.preferences || {}),
+          faculty_profile_specialization: profileSpecialization,
+          faculty_profile_experience: profileExperience
+        }
+      });
+      login("", updatedUser);
+      setShowEditProfileModal(false);
+    } catch (err) {
+      console.error("Local context synchronization failed:", err);
+      alert("Failed to save profile changes.");
     }
-
-    setShowEditProfileModal(false);
   };
 
   // Toggle active tab state
@@ -540,6 +525,20 @@ export default function FacultyDashboard() {
     >
       {error ? (
         <p className="text-sm text-red-600 my-4">Failed to load dashboard: {error}</p>
+      ) : null}
+
+      {guideMetrics?.length ? (
+        <section className="mb-6 space-y-3">
+          <h2 className="font-display text-lg font-bold text-[#9B0302]">Research Guide Overview</h2>
+          <DashboardCards items={guideMetrics} />
+        </section>
+      ) : null}
+
+      {coordinatorMetrics?.length ? (
+        <section className="mb-6 space-y-3">
+          <h2 className="font-display text-lg font-bold text-[#9B0302]">Research Center Coordination</h2>
+          <DashboardCards items={coordinatorMetrics} />
+        </section>
       ) : null}
 
 

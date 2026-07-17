@@ -109,7 +109,7 @@ export default function ScholarReportPage() {
       const filteredSchs = filterItems(schs.items || [], ["createdAt"]);
 
       // Get Custom registry tabs data from localStorage
-      let customDataFiltered: any[] = [];
+      const customDataFiltered: any[] = [];
       try {
         const userIdKey = user._id;
         const savedTabsList = localStorage.getItem(`scholar_${userIdKey}_custom_tabs_list`);
@@ -135,6 +135,8 @@ export default function ScholarReportPage() {
 
       setReportData({
         range: { start, end },
+        dateGenerated: new Date().toLocaleDateString("en-GB"),
+        reportId: `REP-${Math.floor(100000 + Math.random() * 900000)}`,
         submissions: filteredSubs,
         leaves: filteredLvs,
         qualifications: filteredQuals,
@@ -303,8 +305,8 @@ export default function ScholarReportPage() {
                   </p>
                 </div>
                 <div className="text-right text-xs text-slate-500">
-                  <p><strong>Date Generated:</strong> {new Date().toLocaleDateString("en-GB")}</p>
-                  <p><strong>Report ID:</strong> REP-{Math.floor(100000 + Math.random() * 900000)}</p>
+                  <p><strong>Date Generated:</strong> {reportData?.dateGenerated}</p>
+                  <p><strong>Report ID:</strong> {reportData?.reportId}</p>
                 </div>
               </div>
 
@@ -315,7 +317,7 @@ export default function ScholarReportPage() {
                     Scholar Details
                   </h3>
                   <p className="py-1"><strong>Full Name:</strong> {user?.name}</p>
-                  <p className="py-1"><strong>Unique ID:</strong> {typeof window !== 'undefined' && user?._id ? (localStorage.getItem(`scholar_${user._id}_profile_unique_id`) || "MCKA-SCH-" + user._id.slice(-4).toUpperCase()) : ""}</p>
+                  <p className="py-1"><strong>Unique ID:</strong> {user?.uniqueId || (user?._id ? "MCKA-SCH-" + user._id.slice(-4).toUpperCase() : "")}</p>
                   <p className="py-1"><strong>Registered Email:</strong> {user?.email}</p>
                 </div>
                 <div>
