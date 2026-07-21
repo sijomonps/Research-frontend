@@ -11,7 +11,9 @@ export type ApiMessageResponse = {
 };
 
 const getAuthHeaders = (): Record<string, string> => {
-  return {};
+  if (typeof window === "undefined") return {};
+  const token = localStorage.getItem("token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
 const rawBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;

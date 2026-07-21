@@ -187,6 +187,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const login = (token: string, userData: User) => {
+    if (typeof window !== "undefined" && token) {
+      localStorage.setItem("token", token);
+    }
     setUser(userData);
     syncUserToLocalStorage(userData);
 
@@ -194,7 +197,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const role = userData.role || userData.roles?.[0];
       let changePasswordPath = "/";
       if (role === "admin") changePasswordPath = "/admin/settings";
-            else if (role === "faculty") changePasswordPath = "/faculty/profile/change-password";
+      else if (role === "faculty") changePasswordPath = "/faculty/profile/change-password";
       else if (role === "scholar") changePasswordPath = "/scholar/profile/change-password";
       else if (role === "library") changePasswordPath = "/library/profile/change-password";
 
@@ -210,6 +213,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = async () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("token");
+    }
     try {
       await apiPostJson("/auth/logout", {});
     } catch (e) {
