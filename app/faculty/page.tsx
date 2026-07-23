@@ -95,11 +95,13 @@ export default function FacultyDashboard() {
   const [profileDesignation, setProfileDesignation] = useState("");
   const [profileUniqueId, setProfileUniqueId] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
+  const [profileCenterId, setProfileCenterId] = useState("");
   const [profileDept, setProfileDept] = useState("");
   const [profileDepartment, setProfileDepartment] = useState("");
   const [profileAvatar, setProfileAvatar] = useState("");
   const [profileSpecialization, setProfileSpecialization] = useState("");
   const [profileExperience, setProfileExperience] = useState("");
+  const [availableCenters, setAvailableCenters] = useState<any[]>([]);
 
   // New tab form
   const [newTabLabel, setNewTabLabel] = useState("");
@@ -261,11 +263,20 @@ export default function FacultyDashboard() {
         setCustomTabsData(DEFAULT_FACULTY_TABS_DATA);
       }
 
+      // Fetch available research centers for profile editing
+      apiGet<ApiListResponse<any>>("/research-centers")
+        .then((res) => {
+          if (isMounted && res.items) setAvailableCenters(res.items);
+        })
+        .catch(() => {});
+
       // Load Profile fields from user context
       setProfileName(user?.name || "");
       setProfileDesignation(user?.designation || "");
       setProfileUniqueId(user?.uniqueId || "");
       setProfileEmail(user?.email || "");
+      const userCenterId = user?.researchCenter?._id || (typeof user?.researchCenter === "string" ? user?.researchCenter : "");
+      setProfileCenterId(userCenterId || "");
       setProfileDept(user?.researchCenter?.name || (typeof user?.researchCenter === "string" ? user?.researchCenter : ""));
       setProfileDepartment(user?.department || "");
       setProfileAvatar(getUserAvatarUrl(user));
@@ -322,6 +333,7 @@ export default function FacultyDashboard() {
         designation: profileDesignation,
         uniqueId: profileUniqueId.trim(),
         department: profileDepartment.trim(),
+        researchCenterId: profileCenterId || null,
         avatar: transformGoogleDriveLink(profileAvatar),
         preferences: {
           ...(user.preferences || {}),
@@ -830,14 +842,23 @@ export default function FacultyDashboard() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Research Center</label>
-                <input
-                  type="text"
-                  value={profileDept}
-                  readOnly
-                  disabled
-                  className="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-slate-50 px-3.5 py-2 text-xs text-slate-500 cursor-not-allowed focus:outline-none"
-                />
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Research Center</label>
+                <select
+                  value={profileCenterId}
+                  onChange={(e) => {
+                    setProfileCenterId(e.target.value);
+                    const selected = availableCenters.find((c) => c._id === e.target.value);
+                    setProfileDept(selected ? selected.name : "");
+                  }}
+                  className="w-full rounded-xl border border-[color:var(--border)] bg-white px-3.5 py-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#9B0302] cursor-pointer"
+                >
+                  <option value="">-- Optional: Select Research Center --</option>
+                  {availableCenters.map((rc) => (
+                    <option key={rc._id} value={rc._id}>
+                      {rc.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>

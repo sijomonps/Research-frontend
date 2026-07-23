@@ -142,10 +142,6 @@ export default function Home() {
       setRegError("Please select a research guide.");
       return;
     }
-    if (regRole !== "scholar" && !regDept) {
-      setRegError("Please select a research center.");
-      return;
-    }
     if (regRole === "faculty" && !regFacultyDepartment.trim()) {
       setRegError("Please enter your department.");
       return;
@@ -167,7 +163,7 @@ export default function Home() {
         if (selectedGuide) {
           researchCenterId = selectedGuide.researchCenter?._id || selectedGuide.researchCenter;
         }
-      } else {
+      } else if (regDept) {
         const selectedCenter = availableDepartments.find(c => c.name === regDept);
         if (selectedCenter) {
           researchCenterId = selectedCenter._id;
@@ -388,7 +384,10 @@ export default function Home() {
                 </div>
                 <h3 className="font-display text-xl font-bold text-slate-900 mb-2">Request Submitted!</h3>
                 <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                  Your access request has been successfully sent to the administrator. You will be able to sign in once your account is approved.
+                  {regRole === "scholar"
+                    ? "Your access request has been sent to your selected Research Guide for approval. You will be able to sign in once your account is approved."
+                    : "Your access request has been sent to the administrator for approval. You will be able to sign in once your account is approved."
+                  }
                 </p>
                 <button
                   type="button"
@@ -570,25 +569,20 @@ export default function Home() {
 
                 {regRole && regRole !== "scholar" && (
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Research Center</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                      Research Center <span className="normal-case font-normal text-slate-400">(Optional)</span>
+                    </label>
                     <div className="relative">
                       <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <select
-                        required
                         value={regDept}
                         onChange={(e) => setRegDept(e.target.value)}
                         className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#9B0302]/20 focus:border-[#9B0302] transition-all cursor-pointer appearance-none"
                       >
-                        <option value="" disabled>-- Select center --</option>
+                        <option value="">-- Select research center  --</option>
                         {availableDepartments.map((dept) => (
                           <option key={dept._id} value={dept.name}>{dept.name}</option>
                         ))}
-                        {availableDepartments.length === 0 && (
-                          <>
-                            <option value="MCA">MCA</option>
-                            <option value="Computer Science">Computer Science</option>
-                          </>
-                        )}
                       </select>
                     </div>
                   </div>
